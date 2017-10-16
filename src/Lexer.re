@@ -33,6 +33,9 @@ let lexer = fun (s: Input.inputStream) => {
   /* ref value to keep track of the current line number; must be updated for every newline */
   let line = ref 1;
 
+  /* a buffer holding the last emitted tokenValue */
+  let lastTokenValue: ref (option tokenValue) = ref None;
+
   /* a buffer holding tokenValues to compute some tokens ahead of time */
   let tokenValueBuffer: ref (list tokenValue) = ref [];
 
@@ -58,6 +61,27 @@ let lexer = fun (s: Input.inputStream) => {
         raise (Stream.Error "Unexpected EOF, expected end of comment")
       }
     };
+  };
+
+  /* skip all whitespace-like characters */
+  let rec skipWhitespaces () => {
+    switch (Stream.peek s) {
+      /* count up current line number */
+      | Some (Char '\n') => {
+        Stream.junk s; /* skip over newline */
+        line := !line + 1;
+        skipWhitespaces ()
+      }
+
+      | Some (Char ' ')
+      | Some (Char '\r') => {
+        Stream.junk s; /* skip over whitespace-like char */
+        skipWhitespaces ()
+      }
+
+      /* end sequence on all other characters */
+      | _ => ()
+    }
   };
 
   /* captures any hex code of 1-n digits (spec-compliancy is 1-6), assuming that the code's start is in `str` */
@@ -147,18 +171,30 @@ let lexer = fun (s: Input.inputStream) => {
     }
   };
 
-  let captureURLToken (previousWordContent: string) => {
-    /* handle special url() case, which doesn't require quotes */
-    if (previousWordContent === "url" && Stream.peek s == Some (Char '(')) {
-      Stream.junk s; /* Skip over opening paren */
-      tokenValueBuffer := [Paren Opening, ...!tokenValueBuffer];
+  let bufferURLContent () => {
+    skipWhitespaces (); /* Skip all whitespaces */
 
-      /* capture contents of url() argument until closing paren */
-      let urlContent = captureStringContent ')' "";
-      tokenValueBuffer := [Str urlContent, ...!tokenValueBuffer];
+    switch (Stream.peek s) {
+      /* capture normal strings inside url() argument (closing parenthesis handled by main loop) */
+      | Some (Char ('\"' as c))
+      | Some (Char ('\'' as c)) => {
+        Stream.junk s; /* throw away the leading quote */
 
-      /* add closing paren that captureStringContent skipped over */
-      tokenValueBuffer := [Paren Closing, ...!tokenValueBuffer];
+        let urlContent = captureStringContent c "";
+        tokenValueBuffer := [Str urlContent, ...!tokenValueBuffer];
+      }
+
+      | Some (Char _) => {
+        /* capture contents of url() argument until closing paren, and trim result */
+        let urlContent = String.trim (captureStringContent ')' "");
+
+        /* add closing paren that captureStringContent skipped over (reverse order) */
+        tokenValueBuffer := [Paren Closing, ...!tokenValueBuffer];
+        tokenValueBuffer := [Str urlContent, ...!tokenValueBuffer];
+      }
+
+      /* ignore all other cases as they're either handled by the main loop or the main parsing stage */
+      | _ => ()
     }
   };
 
@@ -195,7 +231,6 @@ let lexer = fun (s: Input.inputStream) => {
   let rec nextTokenValue (): tokenValue => {
     switch (Stream.next s) {
       /* single character tokens */
-      | Char '(' => Paren Opening
       | Char ')' => Paren Closing
       | Char '{' => Brace Opening
       | Char '}' => Brace Closing
@@ -210,6 +245,16 @@ let lexer = fun (s: Input.inputStream) => {
       | Char '*' => Asterisk
       | Char '~' => Tilde
       | Char ',' => Comma
+
+      /* detect whether parenthesis is part of url() */
+      | Char '(' => {
+        if (!lastTokenValue == Some (Word "url")) {
+          bufferURLContent ();
+          Paren Opening
+        } else {
+          Paren Opening
+        }
+      }
 
       /* skip over carriage return and whitespace */
       | Char '\r'
@@ -239,14 +284,12 @@ let lexer = fun (s: Input.inputStream) => {
       | Char ('!' as c)
       | Char ('.' as c) => {
         let wordContent = captureWordContent (String.make 1 c);
-        captureURLToken wordContent; /* handle url() argument */
         Word wordContent
       }
 
       /* detect at-words and parse it like a normal word afterwards */
       | Char '@' => {
         let wordContent = captureWordContent "@";
-        captureURLToken wordContent; /* handle url() argument */
         AtWord wordContent
       }
 
@@ -278,7 +321,10 @@ let lexer = fun (s: Input.inputStream) => {
 
       /* get next token and return it, except if stream is empty */
       | [] => switch (nextTokenValue ()) {
-        | value => Some (Token value !line)
+        | value => {
+          lastTokenValue := Some value;
+          Some (Token value !line)
+        }
         | exception Stream.Failure => None
       }
     }
