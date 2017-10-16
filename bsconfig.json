@@ -2,6 +2,7 @@
   "name": "sweetsour-bs",
   "version": "0.1.0",
   "bsc-flags": ["-bs-super-errors"],
+  "package-specs" : ["es6"],
   "sources": [
     "src"
   ],
