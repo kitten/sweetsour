@@ -1,4 +1,3 @@
-exception Failure;
 exception Error string;
 
 type t 'a = {
@@ -11,18 +10,13 @@ let from = fun (fn: unit => option 'a): t 'a => ({
   buffer: ref None
 });
 
-let next = fun (stream: t 'a): 'a => {
+let next = fun (stream: t 'a): option 'a => {
   switch !stream.buffer {
     | Some value => {
       stream.buffer := None;
-      value
+      Some value
     }
-    | None => {
-      switch (stream.gen ()) {
-        | Some value => value
-        | None => raise Failure
-      }
-    }
+    | None => stream.gen ()
   }
 };
 

@@ -22,7 +22,8 @@ type tokenValue =
   | Arrow
   | Asterisk
   | Tilde
-  | Comma;
+  | Comma
+  | EOF;
 
 /* A token represented by its value and a line number */
 type token = Token tokenValue int;
@@ -43,21 +44,21 @@ let lexer = fun (s: Input.inputStream) => {
   let rec skipCommentContent () => {
     switch (LazyStream.next s) {
       /* end a comment on asterisk + slash */
-      | Char '*' when (LazyStream.peek s == Some (Char '/')) => {
+      | Some (Char '*') when (LazyStream.peek s == Some (Char '/')) => {
         LazyStream.junk s; /* throw away the trailing slash */
       }
 
       /* count up current line number inside comments */
-      | Char '\n' => {
+      | Some (Char '\n') => {
         line := !line + 1;
         skipCommentContent ()
       }
 
       /* any char is recursively ignored */
-      | _ => skipCommentContent ()
+      | Some _ => skipCommentContent ()
 
       /* a comment should be closed, since we don't want to deal with input weirdness */
-      | exception LazyStream.Failure => {
+      | None => {
         raise (LazyStream.Error "Unexpected EOF, expected end of comment")
       }
     };
@@ -111,28 +112,28 @@ let lexer = fun (s: Input.inputStream) => {
   let captureEscapedContent (): string => {
     let escaped = switch (LazyStream.next s) {
       /* detect start of a hex code as those have a different escape syntax */
-      | Char ('A'..'F' as c)
-      | Char ('a'..'f' as c)
-      | Char ('0'..'9' as c) => {
+      | Some (Char ('A'..'F' as c))
+      | Some (Char ('a'..'f' as c))
+      | Some (Char ('0'..'9' as c)) => {
         captureHexDigits (String.make 1 c)
       }
 
       /* count up current line number even for escaped newlines */
-      | Char '\n' => {
+      | Some (Char '\n') => {
         line := !line + 1;
         "\n"
       }
 
       /* capture a single non-hex char as the escaped content (spec-compliancy disallows newlines, but they are supported in practice) */
-      | Char c => String.make 1 c
+      | Some (Char c) => String.make 1 c
 
       /* it's too risky to allow value-interpolations as part of escapes */
-      | Interpolation _ => {
+      | Some (Interpolation _) => {
         raise (LazyStream.Error "Unexpected interpolation after backslash, expected escaped content")
       }
 
       /* an escape (backslash) must be followed by at least another char, thus an EOF is unacceptable */
-      | exception LazyStream.Failure => {
+      | None => {
         raise (LazyStream.Error "Unexpected EOF after backslash, expected escaped content")
       }
     };
@@ -144,12 +145,12 @@ let lexer = fun (s: Input.inputStream) => {
   let rec captureStringContent (quote: char) (str: string): string => {
     switch (LazyStream.next s) {
       /* escaped content is allowed anywhere inside a string */
-      | Char '\\' => {
+      | Some (Char '\\') => {
         captureStringContent quote (str ^ (captureEscapedContent ()))
       }
 
       /* every char is accepted into the string */
-      | Char c => {
+      | Some (Char c) => {
         /* check if end of string is reached or continue */
         if (c === quote) {
           str
@@ -160,12 +161,12 @@ let lexer = fun (s: Input.inputStream) => {
 
       /* we only have a value-interpolation, which is not the same as an interpolation inside a string */
       /* the only sane thing to do is to disallow interpolations inside strings so that the user replaces the entire string */
-      | Interpolation _ => {
+      | Some (Interpolation _) => {
         raise (LazyStream.Error "Unexpected interpolation inside a string")
       }
 
       /* a string must be explicitly ended, thus an EOF is unacceptable */
-      | exception LazyStream.Failure => {
+      | None => {
         raise (LazyStream.Error "Unexpected EOF before end of string")
       }
     }
@@ -231,23 +232,23 @@ let lexer = fun (s: Input.inputStream) => {
   let rec nextTokenValue (): tokenValue => {
     switch (LazyStream.next s) {
       /* single character tokens */
-      | Char ')' => Paren Closing
-      | Char '{' => Brace Opening
-      | Char '}' => Brace Closing
-      | Char '[' => Bracket Opening
-      | Char ']' => Bracket Closing
-      | Char '=' => Equal
-      | Char ':' => Colon
-      | Char ';' => Semicolon
-      | Char '+' => Plus
-      | Char '&' => Ampersand
-      | Char '>' => Arrow
-      | Char '*' => Asterisk
-      | Char '~' => Tilde
-      | Char ',' => Comma
+      | Some (Char ')') => Paren Closing
+      | Some (Char '{') => Brace Opening
+      | Some (Char '}') => Brace Closing
+      | Some (Char '[') => Bracket Opening
+      | Some (Char ']') => Bracket Closing
+      | Some (Char '=') => Equal
+      | Some (Char ':') => Colon
+      | Some (Char ';') => Semicolon
+      | Some (Char '+') => Plus
+      | Some (Char '&') => Ampersand
+      | Some (Char '>') => Arrow
+      | Some (Char '*') => Asterisk
+      | Some (Char '~') => Tilde
+      | Some (Char ',') => Comma
 
       /* detect whether parenthesis is part of url() */
-      | Char '(' => {
+      | Some (Char '(') => {
         if (!lastTokenValue == Some (Word "url")) {
           bufferURLContent ();
           Paren Opening
@@ -257,57 +258,59 @@ let lexer = fun (s: Input.inputStream) => {
       }
 
       /* skip over carriage return and whitespace */
-      | Char '\r'
-      | Char ' ' => nextTokenValue ()
+      | Some (Char '\r')
+      | Some (Char ' ') => nextTokenValue ()
 
       /* count up current line number and search next tokenValue */
-      | Char '\n' => {
+      | Some (Char '\n') => {
         line := !line + 1;
         nextTokenValue ()
       }
 
       /* detect quotes and parse string */
-      | Char ('\"' as c)
-      | Char ('\'' as c) => {
+      | Some (Char ('\"' as c))
+      | Some (Char ('\'' as c)) => {
         let stringContent = captureStringContent c "";
         Str stringContent
       }
 
       /* detect backslash i.e. escape as start of a word and parse it */
-      | Char '\\' => Word (captureEscapedContent ())
+      | Some (Char '\\') => Word (captureEscapedContent ())
 
       /* detect start of a word and parse it */
-      | Char ('a'..'z' as c)
-      | Char ('A'..'Z' as c)
-      | Char ('0'..'9' as c)
-      | Char ('#' as c)
-      | Char ('!' as c)
-      | Char ('.' as c) => {
+      | Some (Char ('a'..'z' as c))
+      | Some (Char ('A'..'Z' as c))
+      | Some (Char ('0'..'9' as c))
+      | Some (Char ('#' as c))
+      | Some (Char ('!' as c))
+      | Some (Char ('.' as c)) => {
         let wordContent = captureWordContent (String.make 1 c);
         Word wordContent
       }
 
       /* detect at-words and parse it like a normal word afterwards */
-      | Char '@' => {
+      | Some (Char '@') => {
         let wordContent = captureWordContent "@";
         AtWord wordContent
       }
 
       /* pass-through interpolation */
-      | Interpolation x => Interpolation x
+      | Some (Interpolation x) => Interpolation x
 
       /* detect and skip comments, then search next tokenValue */
-      | Char '/' when (LazyStream.peek s == Some (Char '*')) => {
+      | Some (Char '/') when (LazyStream.peek s == Some (Char '*')) => {
         LazyStream.junk s; /* throw away the leading asterisk */
         skipCommentContent ();
         nextTokenValue ()
       }
 
       /* all unrecognised characters will be raised outside of designated matching loops */
-      | Char c => {
+      | Some (Char c) => {
         let msg = "Unexpected token encountered: " ^ (String.make 1 c);
         raise (LazyStream.Error msg)
       }
+
+      | None => EOF
     }
   };
 
@@ -320,12 +323,14 @@ let lexer = fun (s: Input.inputStream) => {
       }
 
       /* get next token and return it, except if stream is empty */
-      | [] => switch (nextTokenValue ()) {
-        | value => {
-          lastTokenValue := Some value;
-          Some (Token value !line)
+      | [] => {
+        switch (nextTokenValue ()) {
+          | EOF => None
+          | value => {
+            lastTokenValue := Some value;
+            Some (Token value !line)
+          }
         }
-        | exception LazyStream.Failure => None
       }
     }
   };
