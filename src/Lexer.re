@@ -27,7 +27,7 @@ type tokenValue =
 /* A token represented by its value and a line number */
 type token = Token tokenValue int;
 
-type lexerStream = Stream.t token;
+type lexerStream = LazyStream.t token;
 
 let lexer = fun (s: Input.inputStream) => {
   /* ref value to keep track of the current line number; must be updated for every newline */
@@ -41,10 +41,10 @@ let lexer = fun (s: Input.inputStream) => {
 
   /* skip over all chars until end of comment is reached */
   let rec skipCommentContent () => {
-    switch (Stream.next s) {
+    switch (LazyStream.next s) {
       /* end a comment on asterisk + slash */
-      | Char '*' when (Stream.peek s == Some (Char '/')) => {
-        Stream.junk s; /* throw away the trailing slash */
+      | Char '*' when (LazyStream.peek s == Some (Char '/')) => {
+        LazyStream.junk s; /* throw away the trailing slash */
       }
 
       /* count up current line number inside comments */
@@ -57,25 +57,25 @@ let lexer = fun (s: Input.inputStream) => {
       | _ => skipCommentContent ()
 
       /* a comment should be closed, since we don't want to deal with input weirdness */
-      | exception Stream.Failure => {
-        raise (Stream.Error "Unexpected EOF, expected end of comment")
+      | exception LazyStream.Failure => {
+        raise (LazyStream.Error "Unexpected EOF, expected end of comment")
       }
     };
   };
 
   /* skip all whitespace-like characters */
   let rec skipWhitespaces () => {
-    switch (Stream.peek s) {
+    switch (LazyStream.peek s) {
       /* count up current line number */
       | Some (Char '\n') => {
-        Stream.junk s; /* skip over newline */
+        LazyStream.junk s; /* skip over newline */
         line := !line + 1;
         skipWhitespaces ()
       }
 
       | Some (Char ' ')
       | Some (Char '\r') => {
-        Stream.junk s; /* skip over whitespace-like char */
+        LazyStream.junk s; /* skip over whitespace-like char */
         skipWhitespaces ()
       }
 
@@ -86,18 +86,18 @@ let lexer = fun (s: Input.inputStream) => {
 
   /* captures any hex code of 1-n digits (spec-compliancy is 1-6), assuming that the code's start is in `str` */
   let rec captureHexDigits (str: string): string => {
-    switch (Stream.peek s) {
+    switch (LazyStream.peek s) {
       /* recursively capture all hex code characters */
       | Some (Char ('a'..'f' as c))
       | Some (Char ('A'..'F' as c))
       | Some (Char ('0'..'9' as c)) => {
-        Stream.junk s;
+        LazyStream.junk s;
         captureHexDigits (str ^ (String.make 1 c))
       }
 
       /* hex code escapes are optionally followed by an extra whitespace */
       | Some (Char ' ') => {
-        Stream.junk s;
+        LazyStream.junk s;
         str ^ " "
       }
 
@@ -109,7 +109,7 @@ let lexer = fun (s: Input.inputStream) => {
 
   /* captures the content of an escape, assuming a backslash preceded it */
   let captureEscapedContent (): string => {
-    let escaped = switch (Stream.next s) {
+    let escaped = switch (LazyStream.next s) {
       /* detect start of a hex code as those have a different escape syntax */
       | Char ('A'..'F' as c)
       | Char ('a'..'f' as c)
@@ -128,12 +128,12 @@ let lexer = fun (s: Input.inputStream) => {
 
       /* it's too risky to allow value-interpolations as part of escapes */
       | Interpolation _ => {
-        raise (Stream.Error "Unexpected interpolation after backslash, expected escaped content")
+        raise (LazyStream.Error "Unexpected interpolation after backslash, expected escaped content")
       }
 
       /* an escape (backslash) must be followed by at least another char, thus an EOF is unacceptable */
-      | exception Stream.Failure => {
-        raise (Stream.Error "Unexpected EOF after backslash, expected escaped content")
+      | exception LazyStream.Failure => {
+        raise (LazyStream.Error "Unexpected EOF after backslash, expected escaped content")
       }
     };
 
@@ -142,7 +142,7 @@ let lexer = fun (s: Input.inputStream) => {
 
   /* captures the content of a string, `quote` being the terminating character */
   let rec captureStringContent (quote: char) (str: string): string => {
-    switch (Stream.next s) {
+    switch (LazyStream.next s) {
       /* escaped content is allowed anywhere inside a string */
       | Char '\\' => {
         captureStringContent quote (str ^ (captureEscapedContent ()))
@@ -161,12 +161,12 @@ let lexer = fun (s: Input.inputStream) => {
       /* we only have a value-interpolation, which is not the same as an interpolation inside a string */
       /* the only sane thing to do is to disallow interpolations inside strings so that the user replaces the entire string */
       | Interpolation _ => {
-        raise (Stream.Error "Unexpected interpolation inside a string")
+        raise (LazyStream.Error "Unexpected interpolation inside a string")
       }
 
       /* a string must be explicitly ended, thus an EOF is unacceptable */
-      | exception Stream.Failure => {
-        raise (Stream.Error "Unexpected EOF before end of string")
+      | exception LazyStream.Failure => {
+        raise (LazyStream.Error "Unexpected EOF before end of string")
       }
     }
   };
@@ -174,11 +174,11 @@ let lexer = fun (s: Input.inputStream) => {
   let bufferURLContent () => {
     skipWhitespaces (); /* Skip all whitespaces */
 
-    switch (Stream.peek s) {
+    switch (LazyStream.peek s) {
       /* capture normal strings inside url() argument (closing parenthesis handled by main loop) */
       | Some (Char ('\"' as c))
       | Some (Char ('\'' as c)) => {
-        Stream.junk s; /* throw away the leading quote */
+        LazyStream.junk s; /* throw away the leading quote */
 
         let urlContent = captureStringContent c "";
         tokenValueBuffer := [Str urlContent, ...!tokenValueBuffer];
@@ -200,10 +200,10 @@ let lexer = fun (s: Input.inputStream) => {
 
   /* captures the content of a word, assuming that the word's start is captured in `str` */
   let rec captureWordContent (str: string): string => {
-    switch (Stream.peek s) {
+    switch (LazyStream.peek s) {
       /* escaped content is allowed anywhere inside a word */
       | Some (Char '\\') => {
-        Stream.junk s;
+        LazyStream.junk s;
         captureWordContent (str ^ (captureEscapedContent ()))
       }
 
@@ -216,7 +216,7 @@ let lexer = fun (s: Input.inputStream) => {
       | Some (Char ('%' as c))
       | Some (Char ('-' as c))
       | Some (Char ('_' as c)) => {
-        Stream.junk s;
+        LazyStream.junk s;
         captureWordContent (str ^ (String.make 1 c))
       }
 
@@ -229,7 +229,7 @@ let lexer = fun (s: Input.inputStream) => {
   };
 
   let rec nextTokenValue (): tokenValue => {
-    switch (Stream.next s) {
+    switch (LazyStream.next s) {
       /* single character tokens */
       | Char ')' => Paren Closing
       | Char '{' => Brace Opening
@@ -297,8 +297,8 @@ let lexer = fun (s: Input.inputStream) => {
       | Interpolation x => Interpolation x
 
       /* detect and skip comments, then search next tokenValue */
-      | Char '/' when (Stream.peek s == Some (Char '*')) => {
-        Stream.junk s; /* throw away the leading asterisk */
+      | Char '/' when (LazyStream.peek s == Some (Char '*')) => {
+        LazyStream.junk s; /* throw away the leading asterisk */
         skipCommentContent ();
         nextTokenValue ()
       }
@@ -306,7 +306,7 @@ let lexer = fun (s: Input.inputStream) => {
       /* all unrecognised characters will be raised outside of designated matching loops */
       | Char c => {
         let msg = "Unexpected token encountered: " ^ (String.make 1 c);
-        raise (Stream.Error msg)
+        raise (LazyStream.Error msg)
       }
     }
   };
@@ -325,10 +325,10 @@ let lexer = fun (s: Input.inputStream) => {
           lastTokenValue := Some value;
           Some (Token value !line)
         }
-        | exception Stream.Failure => None
+        | exception LazyStream.Failure => None
       }
     }
   };
 
-  Stream.from next
+  LazyStream.from next
 };

@@ -5,7 +5,7 @@ type inputValue =
   | Char char
   | Interpolation interpolation;
 
-type inputStream = Stream.t inputValue;
+type inputStream = LazyStream.t inputValue;
 
 let input = fun (strings: array string) (interpolations: array interpolation): inputStream => {
   /* A buffer holding a single interpolation value, interleaved between the array of strings */
@@ -52,5 +52,5 @@ let input = fun (strings: array string) (interpolations: array interpolation): i
     }
   };
 
-  Stream.from next
+  LazyStream.from next
 };
