@@ -27,6 +27,8 @@ type tokenValue =
 /* A token represented by its value and a line number */
 type token = Token tokenValue int;
 
+type lexerStream = Stream.t token;
+
 let lexer = fun (s: Input.inputStream) => {
   /* ref value to keep track of the current line number; must be updated for every newline */
   let line = ref 1;
@@ -37,6 +39,7 @@ let lexer = fun (s: Input.inputStream) => {
   /* skip over all chars until end of comment is reached */
   let rec skipCommentContent () => {
     switch (Stream.next s) {
+      /* end a comment on asterisk + slash */
       | Char '*' when (Stream.peek s == Some (Char '/')) => {
         Stream.junk s; /* throw away the trailing slash */
       }
@@ -47,8 +50,10 @@ let lexer = fun (s: Input.inputStream) => {
         skipCommentContent ()
       }
 
+      /* any char is recursively ignored */
       | _ => skipCommentContent ()
 
+      /* a comment should be closed, since we don't want to deal with input weirdness */
       | exception Stream.Failure => {
         raise (Stream.Error "Unexpected EOF, expected end of comment")
       }
@@ -58,6 +63,7 @@ let lexer = fun (s: Input.inputStream) => {
   /* captures any hex code of 1-n digits (spec-compliancy is 1-6), assuming that the code's start is in `str` */
   let rec captureHexDigits (str: string): string => {
     switch (Stream.peek s) {
+      /* recursively capture all hex code characters */
       | Some (Char ('a'..'f' as c))
       | Some (Char ('A'..'F' as c))
       | Some (Char ('0'..'9' as c)) => {
@@ -71,6 +77,7 @@ let lexer = fun (s: Input.inputStream) => {
         str ^ " "
       }
 
+      /* non-matched characters end the hex sequence */
       | Some _
       | None => str
     }
@@ -92,6 +99,7 @@ let lexer = fun (s: Input.inputStream) => {
         "\n"
       }
 
+      /* capture a single non-hex char as the escaped content (spec-compliancy disallows newlines, but they are supported in practice) */
       | Char c => String.make 1 c
 
       /* it's too risky to allow value-interpolations as part of escapes */
@@ -99,6 +107,7 @@ let lexer = fun (s: Input.inputStream) => {
         raise (Stream.Error "Unexpected interpolation after backslash, expected escaped content")
       }
 
+      /* an escape (backslash) must be followed by at least another char, thus an EOF is unacceptable */
       | exception Stream.Failure => {
         raise (Stream.Error "Unexpected EOF after backslash, expected escaped content")
       }
@@ -115,6 +124,7 @@ let lexer = fun (s: Input.inputStream) => {
         captureStringContent quote (str ^ (captureEscapedContent ()))
       }
 
+      /* every char is accepted into the string */
       | Char c => {
         /* check if end of string is reached or continue */
         if (c === quote) {
@@ -130,6 +140,7 @@ let lexer = fun (s: Input.inputStream) => {
         raise (Stream.Error "Unexpected interpolation inside a string")
       }
 
+      /* a string must be explicitly ended, thus an EOF is unacceptable */
       | exception Stream.Failure => {
         raise (Stream.Error "Unexpected EOF before end of string")
       }
@@ -137,6 +148,7 @@ let lexer = fun (s: Input.inputStream) => {
   };
 
   let captureURLToken (previousWordContent: string) => {
+    /* handle special url() case, which doesn't require quotes */
     if (previousWordContent === "url" && Stream.peek s == Some (Char '(')) {
       Stream.junk s; /* Skip over opening paren */
       tokenValueBuffer := [Paren Opening, ...!tokenValueBuffer];
@@ -172,6 +184,7 @@ let lexer = fun (s: Input.inputStream) => {
         captureWordContent (str ^ (String.make 1 c))
       }
 
+      /* all non-word characters end the sequence */
       | Some _
       | None => {
         str
@@ -208,6 +221,7 @@ let lexer = fun (s: Input.inputStream) => {
         nextTokenValue ()
       }
 
+      /* detect quotes and parse string */
       | Char ('\"' as c)
       | Char ('\'' as c) => {
         let stringContent = captureStringContent c "";
@@ -246,6 +260,7 @@ let lexer = fun (s: Input.inputStream) => {
         nextTokenValue ()
       }
 
+      /* all unrecognised characters will be raised outside of designated matching loops */
       | Char c => {
         let msg = "Unexpected token encountered: " ^ (String.make 1 c);
         raise (Stream.Error msg)
