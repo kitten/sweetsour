@@ -40,11 +40,19 @@ let lexer = fun (s: Input.inputStream) => {
   /* a buffer holding tokenValues to compute some tokens ahead of time */
   let tokenValueBuffer: ref (list tokenValue) = ref [];
 
+  /* checks whether (option inputValue) is equal to char */
+  let isEqualTokenChar = fun (x: option Input.inputValue) (matching: char) => {
+    switch x {
+      | Some (Char c) when (c === matching) => true
+      | _ => false
+    }
+  };
+
   /* skip over all chars until end of comment is reached */
   let rec skipCommentContent () => {
     switch (LazyStream.next s) {
       /* end a comment on asterisk + slash */
-      | Some (Char '*') when (LazyStream.peek s == Some (Char '/')) => {
+      | Some (Char '*') when (isEqualTokenChar (LazyStream.peek s) '/') => {
         LazyStream.junk s; /* throw away the trailing slash */
       }
 
@@ -249,11 +257,12 @@ let lexer = fun (s: Input.inputStream) => {
 
       /* detect whether parenthesis is part of url() */
       | Some (Char '(') => {
-        if (!lastTokenValue == Some (Word "url")) {
-          bufferURLContent ();
-          Paren Opening
-        } else {
-          Paren Opening
+        switch !lastTokenValue {
+          | Some (Word word) when (word === "url") => {
+            bufferURLContent ();
+            Paren Opening
+          }
+          | _ => Paren Opening
         }
       }
 
@@ -298,7 +307,7 @@ let lexer = fun (s: Input.inputStream) => {
       | Some (Interpolation x) => Interpolation x
 
       /* detect and skip comments, then search next tokenValue */
-      | Some (Char '/') when (LazyStream.peek s == Some (Char '*')) => {
+      | Some (Char '/') when (isEqualTokenChar (LazyStream.peek s) '*') => {
         LazyStream.junk s; /* throw away the leading asterisk */
         skipCommentContent ();
         nextTokenValue ()
