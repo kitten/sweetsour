@@ -1,5 +1,4 @@
 exception Error string;
-
 type t 'a = {
   gen: (unit => option 'a) [@bs],
   mutable buffer: option 'a
@@ -32,6 +31,6 @@ let peek = fun (stream: t 'a): option 'a => {
 };
 
 let junk = fun (stream: t 'a) => {
-  next stream;
+  ignore (next stream);
   ()
 };
