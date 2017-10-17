@@ -1,6 +1,9 @@
 {
-  "name": "sweetsour-bs",
+  "name": "sweetsour-parser",
   "version": "0.1.0",
+  "main": "dist/sweetsour-parser.cjs.js",
+  "jsnext:main": "dist/sweetsour-parser.es.js",
+  "module": "dist/sweetsour-parser.es.js",
   "scripts": {
     "clean": "bsb -clean-world",
     "build": "bsb -make-world",
@@ -8,7 +11,13 @@
     "dist": "rollup -c rollup.config.js"
   },
   "keywords": [
-    "BuckleScript"
+    "bucklescript",
+    "reason",
+    "sweetsour",
+    "ISTF",
+    "CSS",
+    "parser",
+    "css-in-js"
   ],
   "license": "MIT",
   "devDependencies": {
@@ -16,6 +25,7 @@
     "jest": "^21.2.1",
     "refmt": "^1.13.7-1",
     "rollup": "^0.50.0",
+    "rollup-plugin-closure-compiler-js": "^1.0.5",
     "rollup-plugin-commonjs": "^8.2.1",
     "rollup-plugin-node-resolve": "^3.0.0",
     "rollup-plugin-uglify": "^2.0.1"
