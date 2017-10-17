@@ -1,5 +1,7 @@
 open Common;
 
+exception InputError string;
+
 /* An input value that can either be a char or an interpolation */
 type inputValue =
   | Char char
@@ -15,7 +17,14 @@ type state = {
 };
 
 let input = fun (strings: array string) (interpolations: array interpolation): inputStream => {
-  let stringsSize = Js.Array.length strings;
+  let stringsSize = Array.length strings;
+
+  if (stringsSize - 1 !== Array.length interpolations) {
+    raise (
+      InputError
+      "Expected no of interpolations to equal no of strings - 1. The input is expected to be strings interleaved by the second interpolations array!"
+    );
+  };
 
   let state = {
     currString: "",
