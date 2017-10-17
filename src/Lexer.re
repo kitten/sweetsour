@@ -23,6 +23,8 @@ type tokenValue =
   | Asterisk
   | Tilde
   | Comma
+  | Pipe
+  | Dollar
   | EOF;
 
 /* A token represented by its value and a line number */
@@ -254,6 +256,8 @@ let lexer = fun (s: Input.inputStream) => {
       | Some (Char '*') => Asterisk
       | Some (Char '~') => Tilde
       | Some (Char ',') => Comma
+      | Some (Char '|') => Pipe
+      | Some (Char '$') => Dollar
 
       /* detect whether parenthesis is part of url() */
       | Some (Char '(') => {
