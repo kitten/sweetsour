@@ -1,4 +1,5 @@
 exception Error string;
+
 type t 'a = {
   gen: (unit => option 'a) [@bs],
   mutable buffer: option 'a

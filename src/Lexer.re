@@ -32,15 +32,21 @@ type token = Token tokenValue int;
 
 type lexerStream = LazyStream.t token;
 
+type state = {
+  /* a buffer holding the last emitted tokenValue */
+  mutable lastTokenValue: option tokenValue,
+  /* a buffer holding tokenValues to compute some tokens ahead of time */
+  mutable tokenValueBuffer: list tokenValue
+};
+
 let lexer = fun (s: Input.inputStream) => {
   /* ref value to keep track of the current line number; must be updated for every newline */
   let line = ref 1;
 
-  /* a buffer holding the last emitted tokenValue */
-  let lastTokenValue: ref (option tokenValue) = ref None;
-
-  /* a buffer holding tokenValues to compute some tokens ahead of time */
-  let tokenValueBuffer: ref (list tokenValue) = ref [];
+  let state = {
+    lastTokenValue: None,
+    tokenValueBuffer: []
+  };
 
   /* checks whether (option inputValue) is equal to char */
   let isEqualTokenChar = fun (x: option Input.inputValue) (matching: char) => {
@@ -190,9 +196,8 @@ let lexer = fun (s: Input.inputStream) => {
       | Some (Char ('\"' as c))
       | Some (Char ('\'' as c)) => {
         LazyStream.junk s; /* throw away the leading quote */
-
         let urlContent = captureStringContent c "";
-        tokenValueBuffer := [Str urlContent, ...!tokenValueBuffer];
+        state.tokenValueBuffer = [Str urlContent, ...state.tokenValueBuffer];
       }
 
       | Some (Char _) => {
@@ -200,8 +205,7 @@ let lexer = fun (s: Input.inputStream) => {
         let urlContent = String.trim (captureStringContent ')' "");
 
         /* add closing paren that captureStringContent skipped over (reverse order) */
-        tokenValueBuffer := [Paren Closing, ...!tokenValueBuffer];
-        tokenValueBuffer := [Str urlContent, ...!tokenValueBuffer];
+        state.tokenValueBuffer = [Paren Closing, Str urlContent, ...state.tokenValueBuffer];
       }
 
       /* ignore all other cases as they're either handled by the main loop or the main parsing stage */
@@ -261,7 +265,7 @@ let lexer = fun (s: Input.inputStream) => {
 
       /* detect whether parenthesis is part of url() */
       | Some (Char '(') => {
-        switch !lastTokenValue {
+        switch state.lastTokenValue {
           | Some (Word word) when (word === "url") => {
             bufferURLContent ();
             Paren Opening
@@ -329,10 +333,10 @@ let lexer = fun (s: Input.inputStream) => {
 
   /* next function needs to be defined as uncurried and arity-0 at its definition */
   let next: (unit => option token) [@bs] = (fun () => {
-    switch !tokenValueBuffer {
+    switch state.tokenValueBuffer {
       /* empty tokenValue buffer before scanning new tokens */
       | [bufferedItem, ...rest] => {
-        tokenValueBuffer := rest;
+        state.tokenValueBuffer = rest;
         Some (Token bufferedItem !line)
       }
 
@@ -341,7 +345,7 @@ let lexer = fun (s: Input.inputStream) => {
         switch (nextTokenValue ()) {
           | EOF => None
           | value => {
-            lastTokenValue := Some value;
+            state.lastTokenValue = Some value;
             Some (Token value !line)
           }
         }
