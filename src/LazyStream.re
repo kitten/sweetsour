@@ -2,18 +2,18 @@ exception Error string;
 
 type t 'a = {
   gen: unit => option 'a,
-  buffer: ref (option 'a)
+  mutable buffer: option 'a
 };
 
 let from = fun (fn: unit => option 'a): t 'a => ({
   gen: fn,
-  buffer: ref None
+  buffer: None
 });
 
 let next = fun (stream: t 'a): option 'a => {
-  switch !stream.buffer {
+  switch stream.buffer {
     | Some value => {
-      stream.buffer := None;
+      stream.buffer = None;
       Some value
     }
     | None => stream.gen ()
@@ -21,11 +21,11 @@ let next = fun (stream: t 'a): option 'a => {
 };
 
 let peek = fun (stream: t 'a): option 'a => {
-  switch !stream.buffer {
+  switch stream.buffer {
     | Some value => Some value
     | None => {
       let value = stream.gen ();
-      stream.buffer := value;
+      stream.buffer = value;
       value
     }
   }
