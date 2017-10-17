@@ -7,50 +7,50 @@ type inputValue =
 
 type inputStream = LazyStream.t inputValue;
 
+type state = {
+  mutable currString: string,
+  mutable currStringSize: int,
+  mutable stringIndex: int,
+  mutable charIndex: int
+};
+
 let input = fun (strings: array string) (interpolations: array interpolation): inputStream => {
-  /* A buffer holding a single interpolation value, interleaved between the array of strings */
-  let bufferedItem = ref None;
-
-  /* Several integers holding the stream's state */
   let stringsSize = Js.Array.length strings;
-  let stringIndex = ref 0;
-  let charIndex = ref 0;
 
-  /* Advances the stream's state */
-  let advance () => {
-    let str = strings.(!stringIndex);
-    let strSize = String.length str;
+  let state = {
+    currString: "",
+    currStringSize: 0,
+    stringIndex: -1,
+    charIndex: -1,
+  };
 
-    if (!charIndex >= strSize - 1) {
-      /* buffer an interpolation and point to the next string */
-      bufferedItem := Some (Interpolation interpolations.(!stringIndex));
-      stringIndex := !stringIndex + 1;
-      charIndex := 0;
+  let rec nextInputValue (): option inputValue => {
+    state.charIndex = state.charIndex + 1;
+
+    if (state.charIndex >= state.currStringSize) {
+      state.stringIndex = state.stringIndex + 1;
+
+      if (state.stringIndex < stringsSize) {
+        state.currString = strings.(state.stringIndex);
+        state.currStringSize = String.length state.currString;
+        state.charIndex = -1;
+
+        if (state.stringIndex > 0) {
+          Some (Interpolation interpolations.(state.stringIndex - 1))
+        } else {
+          nextInputValue ()
+        }
+      } else {
+        None
+      }
     } else {
-      /* jump to next char */
-      charIndex := !charIndex + 1;
+      Some (Char state.currString.[state.charIndex])
     }
   };
 
   /* next function needs to be defined as uncurried and arity-0 at its definition */
   let next: (unit => option inputValue) [@bs] = (fun () => {
-    switch !bufferedItem {
-      /* emit buffered interpolation before scanning chars */
-      | Some item => {
-        Some item
-      }
-
-      /* get next char and advance, except if all input strings have been emptied */
-      | None => {
-        if (!stringIndex >= stringsSize) {
-          None
-        } else {
-          let value = strings.(!stringIndex).[!charIndex];
-          advance ();
-          Some (Char value)
-        }
-      }
-    }
+    nextInputValue ()
   }) [@bs];
 
   LazyStream.from next
