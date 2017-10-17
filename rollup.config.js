@@ -20,7 +20,7 @@ const prodPlugins = [
 
 export default [
   {
-    input: './index.js',
+    input: './lib/es6/src/Main.js',
     name: 'SweetsourParser',
     exports: 'named',
     output: [{
@@ -29,7 +29,7 @@ export default [
     }],
     plugins: plugins.concat(prodPlugins)
   }, {
-    input: './index.js',
+    input: './lib/es6/src/Main.js',
     name: 'SweetsourParser',
     exports: 'named',
     output: [{
@@ -38,7 +38,7 @@ export default [
     }],
     plugins
   }, {
-    input: './index.js',
+    input: './lib/es6/src/Main.js',
     name: 'SweetsourParser',
     exports: 'named',
     output: [{
