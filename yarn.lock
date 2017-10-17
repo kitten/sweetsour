@@ -1981,8 +1981,8 @@ readable-stream@^2.0.6, readable-stream@^2.1.4:
     util-deprecate "~1.0.1"
 
 refmt@^1.13.7-1:
-  version "1.13.7-1"
-  resolved "https://registry.yarnpkg.com/refmt/-/refmt-1.13.7-1.tgz#c3159bcaf23b20cf2dc86cb161570792f62d1481"
+  version "1.13.7"
+  resolved "https://registry.yarnpkg.com/refmt/-/refmt-1.13.7.tgz#9ff7c549aeb0c0b3e6fa92a694ac7e467dfacb9a"
 
 regenerator-runtime@^0.11.0:
   version "0.11.0"

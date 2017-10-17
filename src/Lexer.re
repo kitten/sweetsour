@@ -323,7 +323,8 @@ let lexer = fun (s: Input.inputStream) => {
     }
   };
 
-  let next _: option token => {
+  /* next function needs to be defined as uncurried and arity-0 at its definition */
+  let next: (unit => option token) [@bs] = (fun () => {
     switch !tokenValueBuffer {
       /* empty tokenValue buffer before scanning new tokens */
       | [bufferedItem, ...rest] => {
@@ -342,7 +343,7 @@ let lexer = fun (s: Input.inputStream) => {
         }
       }
     }
-  };
+  }) [@bs];
 
   LazyStream.from next
 };

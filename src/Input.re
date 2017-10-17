@@ -32,7 +32,8 @@ let input = fun (strings: array string) (interpolations: array interpolation): i
     }
   };
 
-  let next _: option inputValue => {
+  /* next function needs to be defined as uncurried and arity-0 at its definition */
+  let next: (unit => option inputValue) [@bs] = (fun () => {
     switch !bufferedItem {
       /* emit buffered interpolation before scanning chars */
       | Some item => {
@@ -50,7 +51,7 @@ let input = fun (strings: array string) (interpolations: array interpolation): i
         }
       }
     }
-  };
+  }) [@bs];
 
   LazyStream.from next
 };

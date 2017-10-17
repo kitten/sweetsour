@@ -24,5 +24,6 @@ lib/bs
 .vscode
 .merlin
 
+dist/
 node_modules/
 lib/
