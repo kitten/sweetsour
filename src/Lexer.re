@@ -109,7 +109,7 @@ let lexer = fun (s: Input.inputStream) => {
       | Some (Char ('A'..'F' as c))
       | Some (Char ('0'..'9' as c)) => {
         LazyStream.junk s;
-        captureHexDigits (str ^ (String.make 1 c))
+        captureHexDigits (str ^ (string_of_char c))
       }
 
       /* hex code escapes are optionally followed by an extra whitespace */
@@ -131,7 +131,7 @@ let lexer = fun (s: Input.inputStream) => {
       | Some (Char ('A'..'F' as c))
       | Some (Char ('a'..'f' as c))
       | Some (Char ('0'..'9' as c)) => {
-        captureHexDigits (String.make 1 c)
+        captureHexDigits (string_of_char c)
       }
 
       /* count up current line number even for escaped newlines */
@@ -141,7 +141,7 @@ let lexer = fun (s: Input.inputStream) => {
       }
 
       /* capture a single non-hex char as the escaped content (spec-compliancy disallows newlines, but they are supported in practice) */
-      | Some (Char c) => String.make 1 c
+      | Some (Char c) => string_of_char c
 
       /* it's too risky to allow value-interpolations as part of escapes */
       | Some (Interpolation _) => {
@@ -171,7 +171,7 @@ let lexer = fun (s: Input.inputStream) => {
         if (c === quote) {
           str
         } else {
-          captureStringContent quote (str ^ (String.make 1 c))
+          captureStringContent quote (str ^ (string_of_char c))
         }
       }
 
@@ -201,8 +201,8 @@ let lexer = fun (s: Input.inputStream) => {
       }
 
       | Some (Char _) => {
-        /* capture contents of url() argument until closing paren, and trim result */
-        let urlContent = String.trim (captureStringContent ')' "");
+        /* capture contents of url() argument until closing paren */
+        let urlContent = captureStringContent ')' "";
 
         /* add closing paren that captureStringContent skipped over (reverse order) */
         state.tokenValueBuffer = [Paren Closing, Str urlContent, ...state.tokenValueBuffer];
@@ -232,7 +232,7 @@ let lexer = fun (s: Input.inputStream) => {
       | Some (Char ('-' as c))
       | Some (Char ('_' as c)) => {
         LazyStream.junk s;
-        captureWordContent (str ^ (String.make 1 c))
+        captureWordContent (str ^ (string_of_char c))
       }
 
       /* all non-word characters end the sequence */
@@ -301,7 +301,7 @@ let lexer = fun (s: Input.inputStream) => {
       | Some (Char ('#' as c))
       | Some (Char ('!' as c))
       | Some (Char ('.' as c)) => {
-        let wordContent = captureWordContent (String.make 1 c);
+        let wordContent = captureWordContent (string_of_char c);
         Word wordContent
       }
 
@@ -323,7 +323,7 @@ let lexer = fun (s: Input.inputStream) => {
 
       /* all unrecognised characters will be raised outside of designated matching loops */
       | Some (Char c) => {
-        let msg = "Unexpected token encountered: " ^ (String.make 1 c);
+        let msg = "Unexpected token encountered: " ^ (string_of_char c);
         raise (LazyStream.Error msg)
       }
 

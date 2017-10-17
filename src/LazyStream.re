@@ -33,5 +33,4 @@ let peek = fun (stream: t 'a): option 'a => {
 
 let junk = fun (stream: t 'a) => {
   ignore (next stream);
-  ()
 };
