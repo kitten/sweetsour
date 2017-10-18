@@ -41,7 +41,7 @@ type state = {
   mutable tokenValueBuffer: list tokenValue
 };
 
-let lexer = fun (s: Input.inputStream) => {
+let lexer (s: Input.inputStream) => {
   let state = {
     line: 1,
     lastTokenValue: None,
@@ -188,11 +188,11 @@ let lexer = fun (s: Input.inputStream) => {
     }
   };
 
-  let bufferURLContent () => {
+  let bufferUnquotedFunctionContent () => {
     skipWhitespaces (); /* Skip all whitespaces */
 
     switch (LazyStream.peek s) {
-      /* capture normal strings inside url() argument (closing parenthesis handled by main loop) */
+      /* capture normal strings inside function-content (closing parenthesis handled by main loop) */
       | Some (Char ('\"' as c))
       | Some (Char ('\'' as c)) => {
         LazyStream.junk s; /* throw away the leading quote */
@@ -201,11 +201,11 @@ let lexer = fun (s: Input.inputStream) => {
       }
 
       | Some (Char _) => {
-        /* capture contents of url() argument until closing paren */
-        let urlContent = captureStringContent ')' "";
+        /* capture contents of function-argument until closing paren */
+        let content = captureStringContent ')' "";
 
         /* add closing paren that captureStringContent skipped over (reverse order) */
-        state.tokenValueBuffer = [Paren Closing, Str urlContent, ...state.tokenValueBuffer];
+        state.tokenValueBuffer = [Paren Closing, Str content, ...state.tokenValueBuffer];
       }
 
       /* ignore all other cases as they're either handled by the main loop or the main parsing stage */
@@ -263,11 +263,11 @@ let lexer = fun (s: Input.inputStream) => {
       | Some (Char '|') => Pipe
       | Some (Char '$') => Dollar
 
-      /* detect whether parenthesis is part of url() */
+      /* detect whether parenthesis is part of url() or calc() */
       | Some (Char '(') => {
         switch state.lastTokenValue {
-          | Some (Word word) when (word === "url") => {
-            bufferURLContent ();
+          | Some (Word word) when (word === "url" || word === "calc") => {
+            bufferUnquotedFunctionContent ();
             Paren Opening
           }
           | _ => Paren Opening
