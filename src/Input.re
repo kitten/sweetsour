@@ -7,8 +7,10 @@ type inputValue =
   | Char char
   | Interpolation interpolation;
 
+/* Stream type for the InputStream */
 type inputStream = LazyStream.t inputValue;
 
+/* Running state for input serialisation */
 type state = {
   mutable currString: string,
   mutable currStringSize: int,
@@ -16,9 +18,10 @@ type state = {
   mutable charIndex: int
 };
 
-let input = fun (strings: array string) (interpolations: array interpolation): inputStream => {
+let input (strings: array string) (interpolations: array interpolation): inputStream => {
   let stringsSize = Array.length strings;
 
+  /* We expect the interpolations to "fit" inbetween all strings i.e be "interleavable" */
   if (stringsSize - 1 !== Array.length interpolations) {
     raise (
       InputError
@@ -26,6 +29,7 @@ let input = fun (strings: array string) (interpolations: array interpolation): i
     );
   };
 
+  /* Initialise a state that prompts the loop to load the first string */
   let state = {
     currString: "",
     currStringSize: 0,
