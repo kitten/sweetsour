@@ -5,6 +5,11 @@ type pairwiseKind =
   | Opening
   | Closing;
 
+/* For Quote tokens and the string loop to identify the closing quote */
+type quoteKind =
+  | Double
+  | Single;
+
 /* A token's value represented by its type constructor and the value type */
 type tokenValue =
   | Interpolation interpolation
@@ -14,6 +19,7 @@ type tokenValue =
   | Word string
   | AtWord string
   | Str string
+  | Quote quoteKind
   | Equal
   | Colon
   | Semicolon
@@ -30,26 +36,35 @@ type tokenValue =
 /* A token represented by its value and a line number */
 type token = Token tokenValue int;
 
+/* Stream type for the LexerStream */
 type lexerStream = LazyStream.t token;
 
+/* Modes the lexer can be in, allowing encapsulated and specialised logic */
+type lexerMode =
+  | MainLoop
+  | StringEndLoop
+  | StringLoop quoteKind
+  | UnquotedArgumentLoop;
+
+/* Running state for tokenisation */
 type state = {
   /* value to keep track of the current line number; must be updated for every newline */
   mutable line: int,
   /* a buffer holding the last emitted tokenValue */
   mutable lastTokenValue: option tokenValue,
-  /* a buffer holding tokenValues to compute some tokens ahead of time */
-  mutable tokenValueBuffer: list tokenValue
+  /* the current mode of the lexer */
+  mutable mode: lexerMode
 };
 
 let lexer (s: Input.inputStream) => {
   let state = {
     line: 1,
     lastTokenValue: None,
-    tokenValueBuffer: []
+    mode: MainLoop
   };
 
   /* checks whether (option inputValue) is equal to char */
-  let isEqualTokenChar = fun (x: option Input.inputValue) (matching: char) => {
+  let isEqualTokenChar (x: option Input.inputValue) (matching: char) => {
     switch x {
       | Some (Char c) when (c === matching) => true
       | _ => false
@@ -91,6 +106,7 @@ let lexer (s: Input.inputStream) => {
       }
 
       | Some (Char ' ')
+      | Some (Char '\t')
       | Some (Char '\r') => {
         LazyStream.junk s; /* skip over whitespace-like char */
         skipWhitespaces ()
@@ -157,62 +173,6 @@ let lexer (s: Input.inputStream) => {
     "\\" ^ escaped
   };
 
-  /* captures the content of a string, `quote` being the terminating character */
-  let rec captureStringContent (quote: char) (str: string): string => {
-    switch (LazyStream.next s) {
-      /* escaped content is allowed anywhere inside a string */
-      | Some (Char '\\') => {
-        captureStringContent quote (str ^ (captureEscapedContent ()))
-      }
-
-      /* every char is accepted into the string */
-      | Some (Char c) => {
-        /* check if end of string is reached or continue */
-        if (c === quote) {
-          str
-        } else {
-          captureStringContent quote (str ^ (string_of_char c))
-        }
-      }
-
-      /* we only have a value-interpolation, which is not the same as an interpolation inside a string */
-      /* the only sane thing to do is to disallow interpolations inside strings so that the user replaces the entire string */
-      | Some (Interpolation _) => {
-        raise (LazyStream.Error "Unexpected interpolation inside a string")
-      }
-
-      /* a string must be explicitly ended, thus an EOF is unacceptable */
-      | None => {
-        raise (LazyStream.Error "Unexpected EOF before end of string")
-      }
-    }
-  };
-
-  let bufferUnquotedFunctionContent () => {
-    skipWhitespaces (); /* Skip all whitespaces */
-
-    switch (LazyStream.peek s) {
-      /* capture normal strings inside function-content (closing parenthesis handled by main loop) */
-      | Some (Char ('\"' as c))
-      | Some (Char ('\'' as c)) => {
-        LazyStream.junk s; /* throw away the leading quote */
-        let urlContent = captureStringContent c "";
-        state.tokenValueBuffer = [Str urlContent, ...state.tokenValueBuffer];
-      }
-
-      | Some (Char _) => {
-        /* capture contents of function-argument until closing paren */
-        let content = captureStringContent ')' "";
-
-        /* add closing paren that captureStringContent skipped over (reverse order) */
-        state.tokenValueBuffer = [Paren Closing, Str content, ...state.tokenValueBuffer];
-      }
-
-      /* ignore all other cases as they're either handled by the main loop or the main parsing stage */
-      | _ => ()
-    }
-  };
-
   /* captures the content of a word, assuming that the word's start is captured in `str` */
   let rec captureWordContent (str: string): string => {
     switch (LazyStream.peek s) {
@@ -243,10 +203,130 @@ let lexer (s: Input.inputStream) => {
     }
   };
 
-  let rec nextTokenValue (): tokenValue => {
+  /* tokenise unquoted arguments like the content of url() or calc() */
+  let rec unquotedArgumentLoop (str: string): tokenValue => {
+    switch (LazyStream.peek s) {
+      /* escaped content is allowed anywhere inside an unquoted argument */
+      | Some (Char '\\') => {
+        LazyStream.junk s; /* throw away leading backslash */
+        unquotedArgumentLoop (str ^ (captureEscapedContent ()))
+      }
+
+      /* exit UnquotedArgumentLoop when closing parenthesis is found */
+      | Some (Char ')') => {
+        state.mode = MainLoop;
+        Str str
+      }
+
+      /* nested arguments (parentheses) inside unquoted arguments are not allowed */
+      | Some (Char '(') => {
+        raise (LazyStream.Error "Unexpected opening parenthesis inside an unquoted argument")
+      }
+
+      /* whitespace can only appear at the end of an unquoted argument, not in the middle */
+      | Some (Char ' ')
+      | Some (Char '\t')
+      | Some (Char '\r')
+      | Some (Char '\n') => {
+        skipWhitespaces ();
+
+        switch (LazyStream.peek s) {
+          | Some (Char ')') => {
+            state.mode = MainLoop;
+            Str str
+          }
+          | _ => {
+            raise (LazyStream.Error "Unexpected whitespace, expected closing parenthesis")
+          }
+        }
+      }
+
+      /* every char is accepted into the unquoted argument */
+      | Some (Char c) => {
+        LazyStream.junk s; /* throw away char */
+        unquotedArgumentLoop (str ^ (string_of_char c))
+      }
+
+      /* emit string and wait for next loop when encountering an interpolation during an unquoted argument... */
+      | Some (Interpolation _) when (str !== "") => Str str
+
+      /* ...but when the string is empty (next loop) we emit the interpolation */
+      | Some (Interpolation value) => {
+        LazyStream.junk s; /* throw away the interpolation */
+        Interpolation value
+      }
+
+      /* an unquoted argument must be explicitly ended, thus an EOF is unacceptable */
+      | None => {
+        raise (LazyStream.Error "Unexpected EOF before end of unquoted argument")
+      }
+    }
+  };
+
+  /* tokenise a string (excluding quotes which are separate tokens) */
+  let rec stringLoop (kind: quoteKind) (str: string): tokenValue => {
+    switch (LazyStream.peek s) {
+      /* escaped content is allowed anywhere inside a string */
+      | Some (Char '\\') => {
+        LazyStream.junk s; /* throw away leading backslash */
+        stringLoop kind (str ^ (captureEscapedContent ()))
+      }
+
+      /* exit StringLoop when ending quote is found */
+      | Some (Char '\'') when (kind === Single) => {
+        state.mode = StringEndLoop;
+        Str str
+      }
+      | Some (Char '\"') when (kind === Double) => {
+        state.mode = StringEndLoop;
+        Str str
+      }
+
+      /* newlines inside strings are not permitted, except when they're escaped */
+      | Some (Char '\n') => {
+        print_endline (string_of_int state.line);
+        raise (LazyStream.Error "Expected newline inside string to be escaped")
+      }
+
+      /* every char is accepted into the string */
+      | Some (Char c) => {
+        LazyStream.junk s; /* throw away char */
+        stringLoop kind (str ^ (string_of_char c))
+      }
+
+      /* emit string and wait for next loop when encountering an interpolation during a string... */
+      | Some (Interpolation _) when (str !== "") => Str str
+
+      /* ...but when the string is empty (next loop) we emit the interpolation */
+      | Some (Interpolation value) => {
+        LazyStream.junk s; /* throw away the interpolation */
+        Interpolation value
+      }
+
+      /* a string must be explicitly ended, thus an EOF is unacceptable */
+      | None => {
+        raise (LazyStream.Error "Unexpected EOF before end of string")
+      }
+    }
+  };
+
+  /* capture the quote that comes after a string's end (quote has already been detected) */
+  let stringEndLoop (): tokenValue => {
+    state.mode = MainLoop;
+
     switch (LazyStream.next s) {
-      /* single character tokens */
-      | Some (Char ')') => Paren Closing
+      | Some (Char '\"') => Quote Double
+      | Some (Char '\'') => Quote Single
+
+      | _ => {
+        raise (LazyStream.Error "Expected quote at the end of the last string")
+      }
+    }
+  };
+
+  let rec mainLoop (): tokenValue => {
+    switch (LazyStream.next s) {
+      /* single char tokens */
       | Some (Char '{') => Brace Opening
       | Some (Char '}') => Brace Closing
       | Some (Char '[') => Bracket Opening
@@ -263,32 +343,42 @@ let lexer (s: Input.inputStream) => {
       | Some (Char '|') => Pipe
       | Some (Char '$') => Dollar
 
+      /* single char token; closing parenthesis, see below for opening */
+      | Some (Char ')') => Paren Closing
+
       /* detect whether parenthesis is part of url() or calc() */
       | Some (Char '(') => {
-        switch state.lastTokenValue {
-          | Some (Word word) when (word === "url" || word === "calc") => {
-            bufferUnquotedFunctionContent ();
-            Paren Opening
-          }
-          | _ => Paren Opening
-        }
+        skipWhitespaces (); /* skip all leading whitespaces */
+
+        ignore (switch state.lastTokenValue {
+          | Some (Word word) when (word === "url" || word === "calc") => state.mode = UnquotedArgumentLoop;
+          | _ => ()
+        });
+
+        Paren Opening
       }
 
-      /* skip over carriage return and whitespace */
+      /* skip over carriage returns, tabs, and whitespaces */
       | Some (Char '\r')
-      | Some (Char ' ') => nextTokenValue ()
+      | Some (Char '\t')
+      | Some (Char ' ') => mainLoop ()
 
       /* count up current line number and search next tokenValue */
       | Some (Char '\n') => {
         state.line = state.line + 1;
-        nextTokenValue ()
+        mainLoop ()
       }
 
-      /* detect quotes and parse string */
-      | Some (Char ('\"' as c))
-      | Some (Char ('\'' as c)) => {
-        let stringContent = captureStringContent c "";
-        Str stringContent
+      /* detect double quotes and queue StringLoop */
+      | Some (Char '\"') => {
+        state.mode = StringLoop Double;
+        Quote Double
+      }
+
+      /* detect single quotes and queue StringLoop */
+      | Some (Char '\'') => {
+        state.mode = StringLoop Single;
+        Quote Single
       }
 
       /* detect backslash i.e. escape as start of a word and parse it */
@@ -318,7 +408,7 @@ let lexer (s: Input.inputStream) => {
       | Some (Char '/') when (isEqualTokenChar (LazyStream.peek s) '*') => {
         LazyStream.junk s; /* throw away the leading asterisk */
         skipCommentContent ();
-        nextTokenValue ()
+        mainLoop ()
       }
 
       /* all unrecognised characters will be raised outside of designated matching loops */
@@ -333,22 +423,19 @@ let lexer (s: Input.inputStream) => {
 
   /* next function needs to be defined as uncurried and arity-0 at its definition */
   let next: (unit => option token) [@bs] = (fun () => {
-    switch state.tokenValueBuffer {
-      /* empty tokenValue buffer before scanning new tokens */
-      | [bufferedValue, ...rest] => {
-        state.tokenValueBuffer = rest;
-        Some (Token bufferedValue state.line)
-      }
+    let token = switch state.mode {
+      | MainLoop => mainLoop ()
+      | StringLoop kind => stringLoop kind ""
+      | StringEndLoop => stringEndLoop ()
+      | UnquotedArgumentLoop => unquotedArgumentLoop ""
+    };
 
-      /* get next token and return it, except if stream is empty */
-      | [] => {
-        switch (nextTokenValue ()) {
-          | EOF => None
-          | value => {
-            state.lastTokenValue = Some value;
-            Some (Token value state.line)
-          }
-        }
+    switch token {
+      | EOF => None /* special token to signalise the end of the stream */
+      | value => {
+        /* store token as "last token" for unquote argument detection */
+        state.lastTokenValue = Some value;
+        Some (Token value state.line)
       }
     }
   }) [@bs];
