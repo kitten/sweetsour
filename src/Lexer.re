@@ -33,6 +33,8 @@ type token = Token tokenValue int;
 type lexerStream = LazyStream.t token;
 
 type state = {
+  /* value to keep track of the current line number; must be updated for every newline */
+  mutable line: int,
   /* a buffer holding the last emitted tokenValue */
   mutable lastTokenValue: option tokenValue,
   /* a buffer holding tokenValues to compute some tokens ahead of time */
@@ -40,10 +42,8 @@ type state = {
 };
 
 let lexer = fun (s: Input.inputStream) => {
-  /* ref value to keep track of the current line number; must be updated for every newline */
-  let line = ref 1;
-
   let state = {
+    line: 1,
     lastTokenValue: None,
     tokenValueBuffer: []
   };
@@ -66,7 +66,7 @@ let lexer = fun (s: Input.inputStream) => {
 
       /* count up current line number inside comments */
       | Some (Char '\n') => {
-        line := !line + 1;
+        state.line = state.line + 1;
         skipCommentContent ()
       }
 
@@ -86,7 +86,7 @@ let lexer = fun (s: Input.inputStream) => {
       /* count up current line number */
       | Some (Char '\n') => {
         LazyStream.junk s; /* skip over newline */
-        line := !line + 1;
+        state.line = state.line + 1;
         skipWhitespaces ()
       }
 
@@ -136,7 +136,7 @@ let lexer = fun (s: Input.inputStream) => {
 
       /* count up current line number even for escaped newlines */
       | Some (Char '\n') => {
-        line := !line + 1;
+        state.line = state.line + 1;
         "\n"
       }
 
@@ -280,7 +280,7 @@ let lexer = fun (s: Input.inputStream) => {
 
       /* count up current line number and search next tokenValue */
       | Some (Char '\n') => {
-        line := !line + 1;
+        state.line = state.line + 1;
         nextTokenValue ()
       }
 
@@ -335,9 +335,9 @@ let lexer = fun (s: Input.inputStream) => {
   let next: (unit => option token) [@bs] = (fun () => {
     switch state.tokenValueBuffer {
       /* empty tokenValue buffer before scanning new tokens */
-      | [bufferedItem, ...rest] => {
+      | [bufferedValue, ...rest] => {
         state.tokenValueBuffer = rest;
-        Some (Token bufferedItem !line)
+        Some (Token bufferedValue state.line)
       }
 
       /* get next token and return it, except if stream is empty */
@@ -346,7 +346,7 @@ let lexer = fun (s: Input.inputStream) => {
           | EOF => None
           | value => {
             state.lastTokenValue = Some value;
-            Some (Token value !line)
+            Some (Token value state.line)
           }
         }
       }
