@@ -10,6 +10,11 @@ type quoteKind =
   | Double
   | Single;
 
+/* Indicates whether whitespaces are allowed or not */
+type whitespaceMode =
+  | WhitespacesNone
+  | WhitespacesSome;
+
 /* A token's value represented by its type constructor and the value type */
 type tokenValue =
   | Interpolation interpolation
@@ -44,7 +49,7 @@ type lexerMode =
   | MainLoop
   | StringEndLoop
   | StringLoop quoteKind
-  | UnquotedArgumentLoop;
+  | UnquotedArgumentLoop whitespaceMode;
 
 /* Running state for tokenisation */
 type state = {
@@ -204,12 +209,12 @@ let lexer (s: Input.inputStream) => {
   };
 
   /* tokenise unquoted arguments like the content of url() or calc() */
-  let rec unquotedArgumentLoop (str: string): tokenValue => {
+  let rec unquotedArgumentLoop (kind: whitespaceMode) (str: string): tokenValue => {
     switch (LazyStream.peek s) {
       /* escaped content is allowed anywhere inside an unquoted argument */
       | Some (Char '\\') => {
         LazyStream.junk s; /* throw away leading backslash */
-        unquotedArgumentLoop (str ^ (captureEscapedContent ()))
+        unquotedArgumentLoop kind (str ^ (captureEscapedContent ()))
       }
 
       /* exit UnquotedArgumentLoop when closing parenthesis is found */
@@ -223,11 +228,12 @@ let lexer (s: Input.inputStream) => {
         raise (LazyStream.Error "Unexpected opening parenthesis inside an unquoted argument")
       }
 
-      /* whitespace can only appear at the end of an unquoted argument, not in the middle */
+      /* in url() whitespaces can only appear at the end of an unquoted argument */
       | Some (Char ' ')
       | Some (Char '\t')
       | Some (Char '\r')
-      | Some (Char '\n') => {
+      | Some (Char '\n')
+        when (kind === WhitespacesNone) => {
         skipWhitespaces ();
 
         switch (LazyStream.peek s) {
@@ -241,10 +247,16 @@ let lexer (s: Input.inputStream) => {
         }
       }
 
+      /* in calc() whitespaces can appear anywhere, so we have to count newlines */
+      | Some (Char '\n') when (kind === WhitespacesSome) => {
+        state.line = state.line + 1;
+        unquotedArgumentLoop kind (str ^ "\n")
+      }
+
       /* every char is accepted into the unquoted argument */
       | Some (Char c) => {
         LazyStream.junk s; /* throw away char */
-        unquotedArgumentLoop (str ^ (string_of_char c))
+        unquotedArgumentLoop kind (str ^ (string_of_char c))
       }
 
       /* emit string and wait for next loop when encountering an interpolation during an unquoted argument... */
@@ -351,7 +363,8 @@ let lexer (s: Input.inputStream) => {
         skipWhitespaces (); /* skip all leading whitespaces */
 
         ignore (switch state.lastTokenValue {
-          | Some (Word word) when (word === "url" || word === "calc") => state.mode = UnquotedArgumentLoop;
+          | Some (Word word) when (word === "url") => state.mode = UnquotedArgumentLoop WhitespacesNone;
+          | Some (Word word) when (word === "calc") => state.mode = UnquotedArgumentLoop WhitespacesSome;
           | _ => ()
         });
 
@@ -427,7 +440,7 @@ let lexer (s: Input.inputStream) => {
       | MainLoop => mainLoop ()
       | StringLoop kind => stringLoop kind ""
       | StringEndLoop => stringEndLoop ()
-      | UnquotedArgumentLoop => unquotedArgumentLoop ""
+      | UnquotedArgumentLoop kind => unquotedArgumentLoop kind ""
     };
 
     switch token {
