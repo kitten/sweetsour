@@ -25,6 +25,8 @@ type tokenValue =
   | AtWord string
   | Str string
   | Quote quoteKind
+  | WordCombinator
+  | Exclamation
   | Equal
   | Colon
   | Semicolon
@@ -47,6 +49,7 @@ type lexerStream = LazyStream.t token;
 /* Modes the lexer can be in, allowing encapsulated and specialised logic */
 type lexerMode =
   | MainLoop
+  | CombinatorLoop
   | StringEndLoop
   | StringLoop quoteKind
   | UnquotedArgumentLoop whitespaceMode;
@@ -56,7 +59,7 @@ type state = {
   /* value to keep track of the current line number; must be updated for every newline */
   mutable line: int,
   /* a buffer holding the last emitted tokenValue */
-  mutable lastTokenValue: option tokenValue,
+  mutable lastTokenValue: tokenValue,
   /* the current mode of the lexer */
   mutable mode: lexerMode
 };
@@ -64,7 +67,7 @@ type state = {
 let lexer (s: Input.inputStream) => {
   let state = {
     line: 1,
-    lastTokenValue: None,
+    lastTokenValue: EOF,
     mode: MainLoop
   };
 
@@ -72,6 +75,17 @@ let lexer (s: Input.inputStream) => {
   let isEqualTokenChar (x: option Input.inputValue) (matching: char) => {
     switch x {
       | Some (Char c) when (c === matching) => true
+      | _ => false
+    }
+  };
+
+  let isWordStartChar (c: char) => {
+    switch c {
+      | 'a'..'z'
+      | 'A'..'Z'
+      | '0'..'9'
+      | '#'
+      | '.' => true
       | _ => false
     }
   };
@@ -343,6 +357,7 @@ let lexer (s: Input.inputStream) => {
       | Some (Char '}') => Brace Closing
       | Some (Char '[') => Bracket Opening
       | Some (Char ']') => Bracket Closing
+      | Some (Char '!') => Exclamation
       | Some (Char '=') => Equal
       | Some (Char ':') => Colon
       | Some (Char ';') => Semicolon
@@ -363,8 +378,8 @@ let lexer (s: Input.inputStream) => {
         skipWhitespaces (); /* skip all leading whitespaces */
 
         ignore (switch state.lastTokenValue {
-          | Some (Word word) when (word === "url") => state.mode = UnquotedArgumentLoop WhitespacesNone;
-          | Some (Word word) when (word === "calc") => state.mode = UnquotedArgumentLoop WhitespacesSome;
+          | Word "url" => state.mode = UnquotedArgumentLoop WhitespacesNone;
+          | Word "calc" => state.mode = UnquotedArgumentLoop WhitespacesSome;
           | _ => ()
         });
 
@@ -397,25 +412,29 @@ let lexer (s: Input.inputStream) => {
       /* detect backslash i.e. escape as start of a word and parse it */
       | Some (Char '\\') => Word (captureEscapedContent ())
 
-      /* detect start of a word and parse it */
-      | Some (Char ('a'..'z' as c))
-      | Some (Char ('A'..'Z' as c))
-      | Some (Char ('0'..'9' as c))
-      | Some (Char ('#' as c))
-      | Some (Char ('!' as c))
-      | Some (Char ('.' as c)) => {
-        let wordContent = captureWordContent (string_of_char c);
-        Word wordContent
-      }
-
       /* detect at-words and parse it like a normal word afterwards */
       | Some (Char '@') => {
+        /* at-words will never be composed with interpolations, so no switch to WordLoop */
         let wordContent = captureWordContent "@";
         AtWord wordContent
       }
 
+      /* detect start of a word and parse it */
+      | Some (Char c) when (isWordStartChar c) => {
+        /* switch to combinator to emit a WordCombinator when no space occurs between interpolations/words */
+        state.mode = CombinatorLoop;
+
+        /* capture rest of word */
+        let wordContent = captureWordContent (string_of_char c);
+        Word wordContent
+      }
+
       /* pass-through interpolation */
-      | Some (Interpolation x) => Interpolation x
+      | Some (Interpolation x) => {
+        /* switch to combinator to emit a WordCombinator when no space occurs between interpolations/words */
+        state.mode = CombinatorLoop;
+        Interpolation x
+      }
 
       /* detect and skip comments, then search next tokenValue */
       | Some (Char '/') when (isEqualTokenChar (LazyStream.peek s) '*') => {
@@ -434,10 +453,25 @@ let lexer (s: Input.inputStream) => {
     }
   };
 
+  /* emits a combination token when the last and next token are an interpolation/word */
+  let combinatorLoop (): tokenValue => {
+    state.mode = MainLoop;
+
+    switch (LazyStream.peek s) {
+      /* emit WordCombinator when next token will be an interpolation or word again */
+      | Some (Interpolation _) => WordCombinator
+      | Some (Char c) when (isWordStartChar c) => WordCombinator
+
+      /* pass over to MainLoop immediately if no word or interpolation followed */
+      | _ => mainLoop ()
+    }
+  };
+
   /* next function needs to be defined as uncurried and arity-0 at its definition */
   let next: (unit => option token) [@bs] = (fun () => {
     let token = switch state.mode {
       | MainLoop => mainLoop ()
+      | CombinatorLoop => combinatorLoop ()
       | StringLoop kind => stringLoop kind ""
       | StringEndLoop => stringEndLoop ()
       | UnquotedArgumentLoop kind => unquotedArgumentLoop kind ""
@@ -447,7 +481,7 @@ let lexer (s: Input.inputStream) => {
       | EOF => None /* special token to signalise the end of the stream */
       | value => {
         /* store token as "last token" for unquote argument detection */
-        state.lastTokenValue = Some value;
+        state.lastTokenValue = value;
         Some (Token value state.line)
       }
     }
