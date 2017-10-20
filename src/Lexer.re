@@ -10,11 +10,6 @@ type quoteKind =
   | Double
   | Single;
 
-/* Indicates whether whitespaces are allowed or not */
-type whitespaceMode =
-  | WhitespacesNone
-  | WhitespacesSome;
-
 /* A token's value represented by its type constructor and the value type */
 type tokenValue =
   | Interpolation interpolation
@@ -46,13 +41,19 @@ type token = Token tokenValue int;
 /* Stream type for the LexerStream */
 type lexerStream = LazyStream.t token;
 
+/* indicates whether the unquoted argument is allowed to contain more
+   parentheses and whitespaces or not */
+type argumentMode =
+  | StrictString
+  | LooseNested;
+
 /* Modes the lexer can be in, allowing encapsulated and specialised logic */
 type lexerMode =
   | MainLoop
   | CombinatorLoop
   | StringEndLoop
   | StringLoop quoteKind
-  | UnquotedArgumentLoop whitespaceMode;
+  | UnquotedArgumentLoop argumentMode;
 
 /* Running state for tokenisation */
 type state = {
@@ -223,31 +224,41 @@ let lexer (s: Input.inputStream) => {
   };
 
   /* tokenise unquoted arguments like the content of url() or calc() */
-  let rec unquotedArgumentLoop (kind: whitespaceMode) (str: string): tokenValue => {
-    switch (LazyStream.peek s) {
+  let rec unquotedArgumentLoop (kind: argumentMode) (nestedness: int) (str: string): tokenValue => {
+    switch (LazyStream.peek s, kind, nestedness) {
       /* escaped content is allowed anywhere inside an unquoted argument */
-      | Some (Char '\\') => {
+      | (Some (Char '\\'), _, _) => {
         LazyStream.junk s; /* throw away leading backslash */
-        unquotedArgumentLoop kind (str ^ (captureEscapedContent ()))
+        unquotedArgumentLoop kind nestedness (str ^ (captureEscapedContent ()))
       }
 
-      /* exit UnquotedArgumentLoop when closing parenthesis is found */
-      | Some (Char ')') => {
+      /* exit UnquotedArgumentLoop when closing parenthesis is found and nestedness is 0 */
+      | (Some (Char ')'), _, 0) => {
         state.mode = MainLoop;
         Str str
       }
 
-      /* nested arguments (parentheses) inside unquoted arguments are not allowed */
-      | Some (Char '(') => {
+      /* count nestedness down when closing parenthesis is found */
+      | (Some (Char ')'), LooseNested, _) => {
+        LazyStream.junk s; /* throw away closing parenthesis */
+        unquotedArgumentLoop kind (nestedness - 1) (str ^ ")")
+      }
+
+      /* nested arguments (parentheses) inside StrictString arguments are not allowed */
+      | (Some (Char '('), StrictString, _) => {
         raise (LazyStream.Error "Unexpected opening parenthesis inside an unquoted argument")
       }
 
-      /* in url() whitespaces can only appear at the end of an unquoted argument */
-      | Some (Char ' ')
-      | Some (Char '\t')
-      | Some (Char '\r')
-      | Some (Char '\n')
-        when (kind === WhitespacesNone) => {
+      | (Some (Char '('), LooseNested, _) => {
+        LazyStream.junk s; /* throw away opening parenthesis */
+        unquotedArgumentLoop kind (nestedness + 1) (str ^ "(")
+      }
+
+      /* in url() whitespaces can only appear at the end of a StrictString unquoted argument */
+      | (Some (Char ' '), StrictString, _)
+      | (Some (Char '\t'), StrictString, _)
+      | (Some (Char '\r'), StrictString, _)
+      | (Some (Char '\n'), StrictString, _) => {
         skipWhitespaces ();
 
         switch (LazyStream.peek s) {
@@ -255,35 +266,33 @@ let lexer (s: Input.inputStream) => {
             state.mode = MainLoop;
             Str str
           }
-          | _ => {
-            raise (LazyStream.Error "Unexpected whitespace, expected closing parenthesis")
-          }
+          | _ => raise (LazyStream.Error "Unexpected whitespace, expected closing parenthesis")
         }
       }
 
       /* in calc() whitespaces can appear anywhere, so we have to count newlines */
-      | Some (Char '\n') when (kind === WhitespacesSome) => {
+      | (Some (Char '\n'), LooseNested, _) => {
         state.line = state.line + 1;
-        unquotedArgumentLoop kind (str ^ "\n")
+        unquotedArgumentLoop kind nestedness (str ^ "\n")
       }
 
       /* every char is accepted into the unquoted argument */
-      | Some (Char c) => {
+      | (Some (Char c), _, _) => {
         LazyStream.junk s; /* throw away char */
-        unquotedArgumentLoop kind (str ^ (string_of_char c))
+        unquotedArgumentLoop kind nestedness (str ^ (string_of_char c))
       }
 
       /* emit string and wait for next loop when encountering an interpolation during an unquoted argument... */
-      | Some (Interpolation _) when (str !== "") => Str str
+      | (Some (Interpolation _), _, _) when (str !== "") => Str str
 
       /* ...but when the string is empty (next loop) we emit the interpolation */
-      | Some (Interpolation value) => {
+      | (Some (Interpolation value), _, _) => {
         LazyStream.junk s; /* throw away the interpolation */
         Interpolation value
       }
 
       /* an unquoted argument must be explicitly ended, thus an EOF is unacceptable */
-      | None => {
+      | (None, _, _) => {
         raise (LazyStream.Error "Unexpected EOF before end of unquoted argument")
       }
     }
@@ -378,8 +387,8 @@ let lexer (s: Input.inputStream) => {
         skipWhitespaces (); /* skip all leading whitespaces */
 
         ignore (switch state.lastTokenValue {
-          | Word "url" => state.mode = UnquotedArgumentLoop WhitespacesNone;
-          | Word "calc" => state.mode = UnquotedArgumentLoop WhitespacesSome;
+          | Word "url" => state.mode = UnquotedArgumentLoop StrictString;
+          | Word "calc" => state.mode = UnquotedArgumentLoop LooseNested;
           | _ => ()
         });
 
@@ -474,7 +483,7 @@ let lexer (s: Input.inputStream) => {
       | CombinatorLoop => combinatorLoop ()
       | StringLoop kind => stringLoop kind ""
       | StringEndLoop => stringEndLoop ()
-      | UnquotedArgumentLoop kind => unquotedArgumentLoop kind ""
+      | UnquotedArgumentLoop kind => unquotedArgumentLoop kind 0 ""
     };
 
     switch token {
