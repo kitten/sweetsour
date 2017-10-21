@@ -72,9 +72,9 @@ let lexer (s: Input.inputStream) => {
     mode: MainLoop
   };
 
-  /* checks whether (option inputValue) is equal to char */
-  let isEqualTokenChar (x: option Input.inputValue) (matching: char) => {
-    switch x {
+  /* checks whether next input value is equal to char */
+  let isNextCharEqual (matching: char) => {
+    switch (LazyStream.peek s) {
       | Some (Char c) when (c === matching) => true
       | _ => false
     }
@@ -106,7 +106,7 @@ let lexer (s: Input.inputStream) => {
   let rec skipCommentContent () => {
     switch (LazyStream.next s) {
       /* end a comment on asterisk + slash */
-      | Some (Char '*') when (isEqualTokenChar (LazyStream.peek s) '/') => {
+      | Some (Char '*') when (isNextCharEqual '/') => {
         LazyStream.junk s; /* throw away the trailing slash */
       }
 
@@ -452,7 +452,7 @@ let lexer (s: Input.inputStream) => {
       }
 
       /* detect and skip comments, then search next tokenValue */
-      | Some (Char '/') when (isEqualTokenChar (LazyStream.peek s) '*') => {
+      | Some (Char '/') when (isNextCharEqual '*') => {
         LazyStream.junk s; /* throw away the leading asterisk */
         skipCommentContent ();
         mainLoop ()
