@@ -203,14 +203,14 @@ let lexer (s: Input.inputStream) => {
       }
 
       /* the following ranges of chars are part of the word's tail */
-      | Some (Char ('a'..'z' as c))
-      | Some (Char ('A'..'Z' as c))
-      | Some (Char ('0'..'9' as c))
-      | Some (Char ('#' as c))
-      | Some (Char ('.' as c))
       | Some (Char ('%' as c))
       | Some (Char ('-' as c))
       | Some (Char ('_' as c)) => {
+        LazyStream.junk s;
+        captureWordContent (str ^ (string_of_char c))
+      }
+
+      | Some (Char c) when (isWordStartChar c) => {
         LazyStream.junk s;
         captureWordContent (str ^ (string_of_char c))
       }
@@ -319,7 +319,6 @@ let lexer (s: Input.inputStream) => {
 
       /* newlines inside strings are not permitted, except when they're escaped */
       | Some (Char '\n') => {
-        print_endline (string_of_int state.line);
         raise (LazyStream.Error "Expected newline inside string to be escaped")
       }
 
