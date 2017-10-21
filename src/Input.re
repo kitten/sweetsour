@@ -34,30 +34,31 @@ let input (strings: array string) (interpolations: array interpolation): inputSt
     currString: "",
     currStringSize: 0,
     stringIndex: -1,
-    charIndex: -1,
+    charIndex: -1
+  };
+
+  let nextString () => {
+    state.stringIndex = state.stringIndex + 1;
+    state.currString = strings.(state.stringIndex);
+    state.currStringSize = String.length state.currString;
+    state.charIndex = -1;
   };
 
   let rec nextInputValue (): option inputValue => {
-    state.charIndex = state.charIndex + 1;
+    let nextCharIndex = state.charIndex + 1;
+    let nextStringIndex = state.stringIndex + 1;
 
-    if (state.charIndex >= state.currStringSize) {
-      state.stringIndex = state.stringIndex + 1;
-
-      if (state.stringIndex < stringsSize) {
-        state.currString = strings.(state.stringIndex);
-        state.currStringSize = String.length state.currString;
-        state.charIndex = -1;
-
-        if (state.stringIndex > 0) {
-          Some (Interpolation interpolations.(state.stringIndex - 1))
-        } else {
-          nextInputValue ()
-        }
-      } else {
-        None
-      }
-    } else {
+    if (nextCharIndex < state.currStringSize) {
+      state.charIndex = nextCharIndex;
       Some (Char state.currString.[state.charIndex])
+    } else if (nextStringIndex >= stringsSize) {
+      None
+    } else if (nextStringIndex > 0) {
+      nextString ();
+      Some (Interpolation interpolations.(state.stringIndex - 1))
+    } else {
+      nextString ();
+      nextInputValue ()
     }
   };
 
