@@ -80,6 +80,7 @@ let lexer (s: Input.inputStream) => {
     }
   };
 
+  /* recognise all chars that are valid starts of a word */
   let isWordStartChar (c: char) => {
     switch c {
       | 'a'..'z'
@@ -87,6 +88,16 @@ let lexer (s: Input.inputStream) => {
       | '0'..'9'
       | '#'
       | '.' => true
+      | _ => false
+    }
+  };
+
+  /* recognise all chars that are valid hex digits */
+  let isHexDigitChar (c: char) => {
+    switch c {
+      | 'a'..'f'
+      | 'A'..'F'
+      | '0'..'9' => true
       | _ => false
     }
   };
@@ -141,9 +152,7 @@ let lexer (s: Input.inputStream) => {
   let rec captureHexDigits (str: string): string => {
     switch (LazyStream.peek s) {
       /* recursively capture all hex code characters */
-      | Some (Char ('a'..'f' as c))
-      | Some (Char ('A'..'F' as c))
-      | Some (Char ('0'..'9' as c)) => {
+      | Some (Char c) when (isHexDigitChar c) => {
         LazyStream.junk s;
         captureHexDigits (str ^ (string_of_char c))
       }
@@ -164,9 +173,7 @@ let lexer (s: Input.inputStream) => {
   let captureEscapedContent (): string => {
     let escaped = switch (LazyStream.next s) {
       /* detect start of a hex code as those have a different escape syntax */
-      | Some (Char ('A'..'F' as c))
-      | Some (Char ('a'..'f' as c))
-      | Some (Char ('0'..'9' as c)) => {
+      | Some (Char c) when (isHexDigitChar c) => {
         captureHexDigits (string_of_char c)
       }
 
