@@ -44,16 +44,18 @@ type lexerStream = LazyStream.t token;
 /* indicates whether the unquoted argument is allowed to contain more
    parentheses and whitespaces or not */
 type argumentMode =
-  | StrictString
-  | LooseNested;
+  | StringArg
+  | ContentArg;
 
 /* Modes the lexer can be in, allowing encapsulated and specialised logic */
 type lexerMode =
   | MainLoop
   | CombinatorLoop
   | StringEndLoop
-  | StringLoop quoteKind
-  | UnquotedArgumentLoop argumentMode;
+  | SingleQuoteStringLoop
+  | DoubleQuoteStringLoop
+  | UnquotedStringArgLoop
+  | UnquotedContentArgLoop;
 
 /* Running state for tokenisation */
 type state = {
@@ -246,26 +248,26 @@ let lexer (s: Input.inputStream) => {
       }
 
       /* count nestedness down when closing parenthesis is found */
-      | (Some (Char ')'), LooseNested, _) => {
+      | (Some (Char ')'), ContentArg, _) => {
         LazyStream.junk s; /* throw away closing parenthesis */
         unquotedArgumentLoop kind (nestedness - 1) (str ^ ")")
       }
 
       /* nested arguments (parentheses) inside StrictString arguments are not allowed */
-      | (Some (Char '('), StrictString, _) => {
+      | (Some (Char '('), StringArg, _) => {
         raise (LazyStream.Error "Unexpected opening parenthesis inside an unquoted argument")
       }
 
-      | (Some (Char '('), LooseNested, _) => {
+      | (Some (Char '('), ContentArg, _) => {
         LazyStream.junk s; /* throw away opening parenthesis */
         unquotedArgumentLoop kind (nestedness + 1) (str ^ "(")
       }
 
       /* in url() whitespaces can only appear at the end of a StrictString unquoted argument */
-      | (Some (Char ' '), StrictString, _)
-      | (Some (Char '\t'), StrictString, _)
-      | (Some (Char '\r'), StrictString, _)
-      | (Some (Char '\n'), StrictString, _) => {
+      | (Some (Char ' '), StringArg, _)
+      | (Some (Char '\t'), StringArg, _)
+      | (Some (Char '\r'), StringArg, _)
+      | (Some (Char '\n'), StringArg, _) => {
         skipWhitespaces ();
 
         switch (LazyStream.peek s) {
@@ -278,7 +280,7 @@ let lexer (s: Input.inputStream) => {
       }
 
       /* in calc() whitespaces can appear anywhere, so we have to count newlines */
-      | (Some (Char '\n'), LooseNested, _) => {
+      | (Some (Char '\n'), ContentArg, _) => {
         state.line = state.line + 1;
         unquotedArgumentLoop kind nestedness (str ^ "\n")
       }
@@ -393,8 +395,8 @@ let lexer (s: Input.inputStream) => {
         skipWhitespaces (); /* skip all leading whitespaces */
 
         ignore (switch state.lastTokenValue {
-          | Word "url" => state.mode = UnquotedArgumentLoop StrictString;
-          | Word "calc" => state.mode = UnquotedArgumentLoop LooseNested;
+          | Word "url" => state.mode = UnquotedStringArgLoop
+          | Word "calc" => state.mode = UnquotedContentArgLoop;
           | _ => ()
         });
 
@@ -414,13 +416,13 @@ let lexer (s: Input.inputStream) => {
 
       /* detect double quotes and queue StringLoop */
       | Some (Char '\"') => {
-        state.mode = StringLoop Double;
+        state.mode = DoubleQuoteStringLoop;
         Quote Double
       }
 
       /* detect single quotes and queue StringLoop */
       | Some (Char '\'') => {
-        state.mode = StringLoop Single;
+        state.mode = SingleQuoteStringLoop;
         Quote Single
       }
 
@@ -494,9 +496,11 @@ let lexer (s: Input.inputStream) => {
     let token = switch state.mode {
       | MainLoop => mainLoop ()
       | CombinatorLoop => combinatorLoop ()
-      | StringLoop kind => stringLoop kind ""
+      | SingleQuoteStringLoop => stringLoop Single ""
+      | DoubleQuoteStringLoop => stringLoop Double ""
       | StringEndLoop => stringEndLoop ()
-      | UnquotedArgumentLoop kind => unquotedArgumentLoop kind 0 ""
+      | UnquotedStringArgLoop => unquotedArgumentLoop StringArg 0 ""
+      | UnquotedContentArgLoop => unquotedArgumentLoop ContentArg 0 ""
     };
 
     switch token {
