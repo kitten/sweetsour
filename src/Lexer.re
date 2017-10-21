@@ -424,9 +424,6 @@ let lexer (s: Input.inputStream) => {
         Quote Single
       }
 
-      /* detect backslash i.e. escape as start of a word and parse it */
-      | Some (Char '\\') => Word (captureEscapedContent ())
-
       /* detect at-words and parse it like a normal word afterwards */
       | Some (Char '@') => {
         /* at-words will never be composed with interpolations, so no switch to WordLoop */
@@ -441,6 +438,16 @@ let lexer (s: Input.inputStream) => {
 
         /* capture rest of word */
         let wordContent = captureWordContent (string_of_char c);
+        Word wordContent
+      }
+
+      /* detect backslash i.e. escape as start of a word and parse it */
+      | Some (Char '\\') => {
+        /* switch to combinator to emit a WordCombinator when no space occurs between interpolations/words */
+        state.mode = CombinatorLoop;
+
+        /* capture escaped content and rest of word */
+        let wordContent = captureWordContent (captureEscapedContent ());
         Word wordContent
       }
 
