@@ -5,12 +5,12 @@ type t 'a = {
   mutable buffer: option 'a
 };
 
-let from = fun (fn: (unit => option 'a) [@bs]): t 'a => ({
+let from (fn: (unit => option 'a) [@bs]): t 'a => ({
   gen: fn,
   buffer: None
 });
 
-let next = fun (stream: t 'a): option 'a => {
+let next (stream: t 'a): option 'a => {
   switch stream.buffer {
     | Some value => {
       stream.buffer = None;
@@ -20,7 +20,7 @@ let next = fun (stream: t 'a): option 'a => {
   }
 };
 
-let peek = fun (stream: t 'a): option 'a => {
+let peek (stream: t 'a): option 'a => {
   switch stream.buffer {
     | Some value => Some value
     | None => {
@@ -31,6 +31,6 @@ let peek = fun (stream: t 'a): option 'a => {
   }
 };
 
-let junk = fun (stream: t 'a) => {
+let junk (stream: t 'a) => {
   ignore (next stream);
 };
