@@ -52,7 +52,10 @@ let add (value: 'a) (queue: t 'a) => {
   };
 
   switch queue.tail {
-    | None => queue.tail = Some node
+    | None => {
+      queue.head = Some node;
+      queue.tail = Some node;
+    }
     | Some tail => {
       tail.next = Some node;
       queue.tail = Some node;
