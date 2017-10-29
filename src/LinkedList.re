@@ -6,13 +6,15 @@ type elementNode 'a = {
 
 type t 'a = {
   mutable head: option (elementNode 'a),
-  mutable tail: option (elementNode 'a)
+  mutable tail: option (elementNode 'a),
+  mutable size: int
 };
 
 /* create a new LinkedList */
 let create (): t 'a => ({
   head: None,
-  tail: None
+  tail: None,
+  size: 0
 });
 
 /* look at the first value in the queue */
@@ -32,6 +34,7 @@ let take (queue: t 'a): option 'a => {
 
     /* emit next value, and progress queue */
     | (Some head, Some tail) => {
+      queue.size = queue.size - 1;
       queue.head = head.next;
 
       if (head === tail) {
@@ -51,6 +54,8 @@ let add (value: 'a) (queue: t 'a) => {
     next: None
   };
 
+  queue.size = queue.size + 1;
+
   switch queue.tail {
     | None => {
       queue.head = Some node;
@@ -69,6 +74,8 @@ let unshift (value: 'a) (queue: t 'a) => {
     value,
     next: None
   };
+
+  queue.size = queue.size + 1;
 
   switch queue.head {
     | None => {
