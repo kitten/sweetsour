@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+for file in "$@"; do
+  "$(yarn bin)/bsrefmt" --in-place --print-width=80 --print=re --parse=re "$file"
+done

@@ -1,14 +1,14 @@
 open Common;
 
-exception InputError string;
+exception InputError(string);
 
 /* An input value that can either be a char or an interpolation */
 type inputValue =
-  | Char char
-  | Interpolation interpolation;
+  | Char(char)
+  | Interpolation(interpolation);
 
 /* Stream type for the InputStream */
-type inputStream = LazyStream.t inputValue;
+type inputStream = LazyStream.t(inputValue);
 
 /* Running state for input serialisation */
 type state = {
@@ -18,15 +18,14 @@ type state = {
   mutable charIndex: int
 };
 
-let input (strings: array string) (interpolations: array interpolation): inputStream => {
-  let stringsSize = Array.length strings;
+let input = (strings: array(string), interpolations: array(interpolation)) : inputStream => {
+  let stringsSize = Array.length(strings);
 
   /* We expect the interpolations to "fit" inbetween all strings i.e be "interleavable" */
-  if (stringsSize - 1 !== Array.length interpolations) {
-    raise (
-      InputError
+  if (stringsSize - 1 !== Array.length(interpolations)) {
+    raise(InputError(
       "Expected no of interpolations to equal no of strings - 1. The input is expected to be strings interleaved by the second interpolations array!"
-    );
+    ))
   };
 
   /* Initialise a state that prompts the loop to load the first string */
@@ -37,35 +36,35 @@ let input (strings: array string) (interpolations: array interpolation): inputSt
     charIndex: -1
   };
 
-  let nextString () => {
+  let nextString = () => {
     state.stringIndex = state.stringIndex + 1;
-    state.currString = strings.(state.stringIndex);
-    state.currStringSize = String.length state.currString;
+    state.currString = strings[state.stringIndex];
+    state.currStringSize = String.length(state.currString);
     state.charIndex = -1;
   };
 
-  let rec nextInputValue (): option inputValue => {
+  let rec nextInputValue = () : option(inputValue) => {
     let nextCharIndex = state.charIndex + 1;
     let nextStringIndex = state.stringIndex + 1;
 
     if (nextCharIndex < state.currStringSize) {
       state.charIndex = nextCharIndex;
-      Some (Char state.currString.[state.charIndex])
+      Some(Char(state.currString.[state.charIndex]))
     } else if (nextStringIndex >= stringsSize) {
       None
     } else if (nextStringIndex > 0) {
-      nextString ();
-      Some (Interpolation interpolations.(state.stringIndex - 1))
+      nextString();
+      Some(Interpolation(interpolations[state.stringIndex - 1]))
     } else {
-      nextString ();
-      nextInputValue ()
+      nextString();
+      nextInputValue()
     }
   };
 
   /* next function needs to be defined as uncurried and arity-0 at its definition */
-  let next: (unit => option inputValue) [@bs] = (fun () => {
-    nextInputValue ()
-  }) [@bs];
+  let next: [@bs] (unit => option(inputValue)) = [@bs] (() => {
+    nextInputValue()
+  });
 
-  LazyStream.from next
+  LazyStream.from(next)
 };
