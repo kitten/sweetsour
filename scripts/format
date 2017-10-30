@@ -1,5 +1,53 @@
-#!/usr/bin/env bash
+#!/usr/bin/env node
+'use strict';
 
-for file in "$@"; do
-  "$(yarn bin)/bsrefmt" --in-place --print-width=80 --print=re --parse=re "$file"
-done
+const fs = require('fs');
+const path = require('path');
+const childProcess = require('child_process');
+
+if (process.argv.length <= 2) {
+  console.error('You need to pass a list of the files you\'d like to format, like so: `format src/*`');
+  process.exit(1);
+}
+
+const filesToFormat = process.argv.slice(2);
+let filesThatAreInvalid = [];
+
+const refmtBinary = path.join(__dirname, '../node_modules/bs-platform/bin/refmt3.exe');
+const bsconfig = path.join(__dirname, '../bsconfig.json');
+
+const format = files => {
+  files.forEach(file => {
+    const extension = path.extname(file);
+
+    if (extension !== '.re' && extension !== '.rei') {
+      return;
+    }
+
+    const isInterfaceFlag = extension === '.rei' ? '--interface true' : '';
+
+    let content;
+
+    try {
+      content = childProcess.execSync(`${refmtBinary} --parse re --print re ${isInterfaceFlag} ${file}`);
+    } catch(e) {
+      filesThatAreInvalid.push(file);
+      console.log(e.message);
+      return;
+    }
+
+    fs.writeFileSync(file, content, { encoding: 'utf-8' });
+  })
+
+  if (filesThatAreInvalid.length !== 0) {
+    console.log(`\u{1b}[36m
+  The follow files are skipped, because they contain syntax errors:
+  \u{1b}[39m`);
+    console.log(filesThatAreInvalid.map(f => '- ' + f).join('\n'));
+    process.exit(1);
+  }
+
+  process.exit(0);
+};
+
+format(filesToFormat);
