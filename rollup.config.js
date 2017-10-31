@@ -35,13 +35,7 @@ export default [
     output: [{
       file: 'dist/sweetsour-parser.es.js',
       format: 'es'
-    }],
-    plugins
-  }, {
-    input: './lib/es6/src/Main.js',
-    name: 'SweetsourParser',
-    exports: 'named',
-    output: [{
+    }, {
       file: 'dist/sweetsour-parser.cjs.js',
       format: 'umd'
     }],
