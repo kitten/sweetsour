@@ -41,10 +41,12 @@ type node =
   | FunctionStart(string)
   | FunctionEnd
   | AnimationName(string)
-  | SelectorInterpolation(interpolation)
-  | PropertyInterpolation(interpolation)
-  | ValueInterpolation(interpolation)
-  | PartialInterpolation(interpolation)
+  | SelectorRef(interpolation)
+  | PropertyRef(interpolation)
+  | ValueRef(interpolation)
+  | PartialRef(interpolation)
+  | StringStart
+  | StringEnd
   | EOF;
 
 /* Stream type for the ParserStream */
@@ -95,7 +97,7 @@ let parser = (s: Lexer.lexerStream) => {
   let parseValueOrInterpolation = (t: Lexer.tokenValue) => {
     switch t {
     | Word(word) => Value(word)
-    | Interpolation(x) => ValueInterpolation(x)
+    | Interpolation(x) => ValueRef(x)
     | _ => {
       raise(LazyStream.Error(
         "Unexpected token while parsing a value, expected a Word or Interpolation"
@@ -125,7 +127,7 @@ let parser = (s: Lexer.lexerStream) => {
     let node =
       switch (parseToken(BufferStream.next(buffer))) {
       | Some(Word(str)) => Property(str)
-      | Some(Interpolation(x)) => PropertyInterpolation(x)
+      | Some(Interpolation(x)) => PropertyRef(x)
       | _ => {
         raise(LazyStream.Error(
           "Unexpected token while parsing a property, expected a Word or Interpolation"
@@ -148,7 +150,7 @@ let parser = (s: Lexer.lexerStream) => {
     switch (parseToken(BufferStream.next(buffer))) {
     /* emit value tokens inside compound value */
     | Some(Word(str)) => Value(str)
-    | Some(Interpolation(x)) => ValueInterpolation(x)
+    | Some(Interpolation(x)) => ValueRef(x)
 
     /* if a comma is encountered, drop back into the ValueLoop */
     | Some(Comma) => {
