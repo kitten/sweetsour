@@ -27,3 +27,4 @@ lib/bs
 dist/
 node_modules/
 lib/
+coverage/

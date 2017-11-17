@@ -36,3 +36,19 @@ let peek = (stream: t('a)) : option('a) => {
 let junk = (stream: t('a)) => {
   ignore(next(stream))
 };
+
+/* collects all emissions of a stream in an array */
+let toArray = (stream: t('a)) => {
+  let emissions = [||];
+  let rec populate = () : array('a) => {
+    switch (next(stream)) {
+    | Some(x) => {
+      ignore(Js.Array.push(x, emissions));
+      populate()
+    }
+    | None => emissions
+    }
+  };
+
+  populate()
+};
