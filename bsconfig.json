@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "bsc-flags": ["-bs-super-errors"],
   "refmt": 3,
-  "package-specs" : ["es6"],
+  "package-specs" : ["es6", "commonjs"],
   "sources": [
     "src",
     {

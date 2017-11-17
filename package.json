@@ -7,10 +7,9 @@
   "scripts": {
     "clean": "bsb -clean-world",
     "build": "bsb -make-world",
-    "build:watch": "bsb -make-world -w",
+    "watch": "bsb -make-world -w",
     "test": "jest",
     "test:watch": "jest --watch",
-    "watch": "run-p build:watch test:watch",
     "dist": "rollup -c rollup.config.js"
   },
   "keywords": [
@@ -28,6 +27,7 @@
     "babel-plugin-module-resolver": "^3.0.0",
     "babel-preset-env": "^1.6.1",
     "bs-jest": "^0.2.0",
+    "bs-loader": "^2.0.0",
     "bs-platform": "^2.0.0",
     "jest": "^21.2.1",
     "npm-run-all": "^4.1.2",
@@ -38,8 +38,17 @@
     "rollup-plugin-uglify": "^2.0.1"
   },
   "jest": {
-    "roots": ["<rootDir>/lib/es6/"],
-    "transformIgnorePatterns": []
+    "moduleFileExtensions": [
+      "re",
+      "js",
+      "ml"
+    ],
+    "testMatch": [
+      "**/__tests__/*_test.re"
+    ],
+    "transform": {
+      ".(re|ml)": "bs-loader"
+    }
   },
   "babel": {
     "presets": [
