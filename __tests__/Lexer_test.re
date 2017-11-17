@@ -1,6 +1,8 @@
 open Jest;
 open Lexer;
 
+let it = test;
+
 let create_interpolation : int => Common.interpolation = [%bs.raw{|
   function(x) { return x; }
 |}];
@@ -14,7 +16,7 @@ describe("Lexer", () => {
   describe("Single char tokens", () => {
     open Expect;
 
-    test("tokenises single chars correctly", () => {
+    it("tokenises single chars correctly", () => {
       expect(tokenise("{}[]()!=:;+&>*~,|$") == [|
         Token(Brace(Opening), 1),
         Token(Brace(Closing), 1),
@@ -37,7 +39,7 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
-    test("skips over whitespace-chars counting newlines", () => {
+    it("skips over whitespace-chars counting newlines", () => {
       expect(tokenise("\t\r{   }\n{   }") == [|
         Token(Brace(Opening), 1),
         Token(Brace(Closing), 1),
@@ -46,7 +48,7 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
-    test("throws when unexpected tokens are encountered", () => {
+    it("throws when unexpected tokens are encountered", () => {
       expect(() => tokenise("^")) |> toThrowMessage("Unexpected token encountered: ^");
     });
   });
@@ -54,7 +56,7 @@ describe("Lexer", () => {
   describe("Words & At-Words", () => {
     open Expect;
 
-    test("tokenises words correctly", () => {
+    it("tokenises words correctly", () => {
       expect(tokenise("property #id .class_name 10% 10px hello-world") == [|
         Token(Word("property"), 1),
         Token(Word("#id"), 1),
@@ -65,19 +67,19 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
-    test("tokenises words containing escaped characters correctly", () => {
+    it("tokenises words containing escaped characters correctly", () => {
       expect(tokenise("pro\\p\\erty\\0024") == [|
         Token(Word("pro\\p\\erty\\0024"), 1)
       |]) |> toBe(true);
     });
 
-    test("tokenises words starting with escaped characters correctly", () => {
+    it("tokenises words starting with escaped characters correctly", () => {
       expect(tokenise("\\property") == [|
         Token(Word("\\property"), 1)
       |]) |> toBe(true);
     });
 
-    test("tokenises at-words correctly", () => {
+    it("tokenises at-words correctly", () => {
       expect(tokenise("@media") == [|
         Token(AtWord("@media"), 1)
       |]) |> toEqual(true);
@@ -87,11 +89,11 @@ describe("Lexer", () => {
   describe("Multiline Comments", () => {
     open Expect;
 
-    test("ignores multiline comments", () => {
+    it("ignores multiline comments", () => {
       expect(tokenise("/* comment */")) |> toEqual([||]);
     });
 
-    test("keeps counting newlines in comments", () => {
+    it("keeps counting newlines in comments", () => {
       expect(tokenise("/* comment \n */;") == [|
         Token(Semicolon, 2)
       |]) |> toBe(true);
@@ -102,7 +104,7 @@ describe("Lexer", () => {
     open Expect;
     let interpolationValue = create_interpolation(1);
 
-    test("accepts interpolations in the normal lexer loop", () => {
+    it("accepts interpolations in the normal lexer loop", () => {
       let lexerStream = lexer(Input.input([| ":", ";" |], [| interpolationValue |]));
       let tokens = LazyStream.toArray(lexerStream);
 
@@ -113,7 +115,7 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
-    test("combinates words and interpolations using special tokens", () => {
+    it("combinates words and interpolations using special tokens", () => {
       let interpolationValue = create_interpolation(1);
       let lexerStream = lexer(Input.input([| "hello", "", "world;" |], [| interpolationValue, interpolationValue |]));
       let tokens = LazyStream.toArray(lexerStream);
@@ -134,7 +136,7 @@ describe("Lexer", () => {
   describe("Strings", () => {
     open Expect;
 
-    test("parses single and double quote strings", () => {
+    it("parses single and double quote strings", () => {
       expect(tokenise({| 'string 1' "string 2" |}) == [|
         Token(Quote(Single), 1),
         Token(Str("string 1"), 1),
@@ -145,7 +147,7 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
-    test("emits interpolations interleaved with strings", () => {
+    it("emits interpolations interleaved with strings", () => {
       let interpolationValue = create_interpolation(1);
       let lexerStream = lexer(Input.input([|"'start ", " end'"|], [| interpolationValue |]));
       let tokens = LazyStream.toArray(lexerStream);
@@ -159,15 +161,15 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
-    test("throws when no end of string is reached", () => {
+    it("throws when no end of string is reached", () => {
       expect(() => tokenise("'")) |> toThrowMessage("Unexpected EOF before end of string");
     });
 
-    test("throws when unescaped newline in string are found", () => {
+    it("throws when unescaped newline in string are found", () => {
       expect(() => tokenise("'\n")) |> toThrowMessage("Expected newline inside string to be escaped");
     });
 
-    test("accepts escaped content inside strings", () => {
+    it("accepts escaped content inside strings", () => {
       expect(tokenise("'newline:\\n'") == [|
         Token(Quote(Single), 1),
         Token(Str("newline:\\n"), 1),
@@ -179,7 +181,7 @@ describe("Lexer", () => {
   describe("Unquoted string arguments", () => {
     open Expect;
 
-    test("handles url() argument", () => {
+    it("handles url() argument", () => {
       expect(tokenise("url(  https://github.com  )") == [|
         Token(Word("url"), 1),
         Token(Paren(Opening), 1),
@@ -188,15 +190,15 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
-    test("throws when unescaped parentheses in url() argument are found", () => {
+    it("throws when unescaped parentheses in url() argument are found", () => {
       expect(() => tokenise("url(())")) |> toThrowMessage("Unexpected opening parenthesis inside an unquoted argument");
     });
 
-    test("throws when whitespaces in url() argument are found", () => {
+    it("throws when whitespaces in url() argument are found", () => {
       expect(() => tokenise("url(https://  github.com)")) |> toThrowMessage("Unexpected whitespace, expected closing parenthesis");
     });
 
-    test("emits interpolations interleaved with url() argument", () => {
+    it("emits interpolations interleaved with url() argument", () => {
       let username = create_interpolation(1);
       let lexerStream = lexer(Input.input([|"url(https://twitter.com/", "/)"|], [| username |]));
       let tokens = LazyStream.toArray(lexerStream);
@@ -211,7 +213,7 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
-    test("handles calc() argument", () => {
+    it("handles calc() argument", () => {
       expect(tokenise("calc( (50% - 10px) * 2 )") == [|
         Token(Word("calc"), 1),
         Token(Paren(Opening), 1),
@@ -220,7 +222,7 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
-    test("throws when no end of argument is reached", () => {
+    it("throws when no end of argument is reached", () => {
       expect(() => tokenise("url(https://")) |> toThrowMessage("Unexpected EOF before end of unquoted argument");
     });
   });
@@ -228,7 +230,7 @@ describe("Lexer", () => {
   describe("Quoted string arguments", () => {
     open Expect;
 
-    test("parses strings inside arguments other than url() and calc() correctly", () => {
+    it("parses strings inside arguments other than url() and calc() correctly", () => {
       expect(tokenise("partyparrot( 'https://github.com' )") == [|
         Token(Word("partyparrot"), 1),
         Token(Paren(Opening), 1),
