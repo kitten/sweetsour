@@ -286,8 +286,7 @@ let parser = (s: Lexer.lexerStream) => {
 
     /* EOF is only allowed when all rules have been closed with closing curly braces */
     | (None, _) when state.nestedness > 0 => {
-      let msg = "Unexpected EOF, expected " ++ (string_of_int(state.nestedness) ++ " rule(s) to be closed");
-      raise(LazyStream.Error(msg))
+      raise(LazyStream.Error("Unexpected EOF, expected all rules to be closed"))
     }
 
     | (None, _) => EOF

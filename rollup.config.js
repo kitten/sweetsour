@@ -1,6 +1,6 @@
 import nodeResolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
-import uglify from 'rollup-plugin-uglify';
+import uglify from 'rollup-plugin-uglify-es';
 
 const plugins = [
   nodeResolve(),
@@ -10,6 +10,7 @@ const plugins = [
 ];
 
 const prodPlugins = [
+  ...plugins,
   uglify({
     toplevel: true,
     compress: {
@@ -18,20 +19,21 @@ const prodPlugins = [
   })
 ];
 
+const withBase = x => Object.assign({}, x, {
+  input: './lib/es6/src/Main.js',
+  name: 'SweetsourParser',
+  exports: 'named',
+  pureExternalImports: true
+});
+
 export default [
   {
-    input: './lib/es6/src/Main.js',
-    name: 'SweetsourParser',
-    exports: 'named',
     output: [{
       file: 'dist/sweetsour-parser.min.js',
       format: 'umd'
     }],
-    plugins: plugins.concat(prodPlugins)
+    plugins: prodPlugins
   }, {
-    input: './lib/es6/src/Main.js',
-    name: 'SweetsourParser',
-    exports: 'named',
     output: [{
       file: 'dist/sweetsour-parser.es.js',
       format: 'es'
@@ -41,4 +43,4 @@ export default [
     }],
     plugins
   }
-];
+].map(withBase);

@@ -38,7 +38,7 @@ let input = (strings: array(string), interpolations: array(interpolation)) : inp
 
   let nextString = () => {
     state.stringIndex = state.stringIndex + 1;
-    state.currString = strings[state.stringIndex];
+    state.currString = Array.unsafe_get(strings, state.stringIndex);
     state.currStringSize = String.length(state.currString);
     state.charIndex = -1;
   };
@@ -49,12 +49,14 @@ let input = (strings: array(string), interpolations: array(interpolation)) : inp
 
     if (nextCharIndex < state.currStringSize) {
       state.charIndex = nextCharIndex;
-      Some(Char(state.currString.[state.charIndex]))
+      let charVal = String.unsafe_get(state.currString, state.charIndex);
+      Some(Char(charVal))
     } else if (nextStringIndex >= stringsSize) {
       None
     } else if (nextStringIndex > 0) {
       nextString();
-      Some(Interpolation(interpolations[state.stringIndex - 1]))
+      let interpolationVal = Array.unsafe_get(interpolations, state.stringIndex - 1);
+      Some(Interpolation(interpolationVal))
     } else {
       nextString();
       nextInputValue()
