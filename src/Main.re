@@ -1,12 +1,12 @@
 open Common;
 
-let tokenise = (strings: array(string), interpolations: array(interpolation)) : array(Lexer.token) => {
-  let lexerStream = Lexer.lexer(Input.input(strings, interpolations));
-  LazyStream.toArray(lexerStream);
-};
+let tokenise = (strings: array(string), interpolations: array(interpolation)) : array(Lexer.token) =>
+  Input.input(strings, interpolations)
+    |> Lexer.lexer
+    |> LazyStream.toArray;
 
-let parse = (strings: array(string), interpolations: array(interpolation)) : array(Parser.node) => {
-  let lexerStream = Lexer.lexer(Input.input(strings, interpolations));
-  let parserStream = Parser.parser(lexerStream);
-  LazyStream.toArray(parserStream);
-};
+let parse = (strings: array(string), interpolations: array(interpolation)) : array(Parser.node) =>
+  Input.input(strings, interpolations)
+    |> Lexer.lexer
+    |> Parser.parser
+    |> LazyStream.toArray;
