@@ -48,7 +48,7 @@ type node =
   | PropertyRef(interpolation)
   | ValueRef(interpolation)
   | PartialRef(interpolation)
-  | StringStart
+  | StringStart(string)
   | StringEnd
   | EOF;
 
@@ -106,7 +106,7 @@ let parser = (s: Lexer.lexerStream) => {
 
   /* parses all value nodes recursively, including functions and compound values,
      and returns the resulting node buffer */
-  let parseValues = (): LinkedList.t(node) => {
+  let parseValues = () : LinkedList.t(node) => {
     /* wraps node buffer in compound value nodes when more than one value was parsed (length > 1) */
     let wrapBufferAsCompound = (nodeBuffer: LinkedList.t(node), length: int) => {
       switch (length) {
@@ -124,6 +124,49 @@ let parser = (s: Lexer.lexerStream) => {
       LinkedList.unshift(FunctionStart(fnName), nodeBuffer);
       LinkedList.add(FunctionEnd, nodeBuffer);
       nodeBuffer
+    };
+
+    let addValueNode = (str: string, nodeBuffer: LinkedList.t(node)) => {
+      switch (str) {
+      | "" => nodeBuffer
+      | _ => {
+        LinkedList.add(Value(str), nodeBuffer);
+        nodeBuffer
+      }
+      }
+    };
+
+    let parseString = (kind: Lexer.quoteKind) : LinkedList.t(node) => {
+      let nodeBuffer = LinkedList.create();
+      let quoteStr = switch (kind) {
+        | Double => "\""
+        | Single => "'"
+      };
+
+      let rec parse = (str: string, containsInterpolation: bool) => {
+        switch (getTokenValue(BufferStream.next(buffer))) {
+        | Some(Interpolation(x)) => {
+          LinkedList.add(ValueRef(x), addValueNode(str, nodeBuffer));
+          parse("", true)
+        }
+
+        | Some(Quote(endKind)) when endKind === kind => {
+          if (nodeBuffer.size > 1 || containsInterpolation) {
+            LinkedList.unshift(StringStart(quoteStr), addValueNode(str, nodeBuffer));
+            LinkedList.add(StringEnd, nodeBuffer);
+            nodeBuffer
+          } else {
+            addValueNode(quoteStr ++ str ++ quoteStr, nodeBuffer)
+          }
+        }
+
+        | Some(Str(rest)) => parse(str ++ rest, containsInterpolation)
+
+        | _ => raise(ParserError("Unexpected token while parsing string", state.line))
+        }
+      };
+
+      parse("", false)
     };
 
     /* recursively parse all values by dividing the stream into functions, compounds, and lastly values */
@@ -149,6 +192,12 @@ let parser = (s: Lexer.lexerStream) => {
             parseValueLevel(nodeBuffer, length + 1, level)
           }
         }
+      }
+
+      | Some(Quote(kind)) => {
+        BufferStream.junk(buffer);
+        let innerValues = parseString(kind);
+        parseValueLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
       }
 
       | Some(Str(str)) when level > 0 => {
