@@ -57,17 +57,12 @@ type parserMode =
   | MainLoop
   | PropertyLoop
   | ValueLoop
-  | CompoundValueMode
   | SelectorLoop;
 
 /* Running state for parsing */
 type state = {
-  /* value to keep track of the current line number, copied from incoming tokens */
-  mutable line: int,
   /* value to keep track of the current rule nesting */
-  mutable nestedness: int,
-  /* a buffer holding the last emitted node */
-  mutable lastNode: node,
+  mutable ruleLevel: int,
   /* the current mode of the parser */
   mutable mode: parserMode
 };
@@ -77,19 +72,13 @@ let parser = (s: Lexer.lexerStream) => {
   let buffer = BufferStream.from(s);
 
   let state = {
-    line: 0,
-    nestedness: 0,
-    lastNode: EOF,
+    ruleLevel: 0,
     mode: MainLoop
   };
 
   let parseToken = (t: option(Lexer.token)) : option(Lexer.tokenValue) => {
     switch t {
-    | Some(Token(value, line)) => {
-      state.line = line;
-      Some(value)
-    }
-
+    | Some(Token(value, _)) => Some(value)
     | None => None
     }
   };
@@ -146,46 +135,10 @@ let parser = (s: Lexer.lexerStream) => {
     node
   };
 
-  let compoundValueLoop = () : node => {
-    switch (parseToken(BufferStream.next(buffer))) {
-    /* emit value tokens inside compound value */
-    | Some(Word(str)) => Value(str)
-    | Some(Interpolation(x)) => ValueRef(x)
-
-    /* if a comma is encountered, drop back into the ValueLoop */
-    | Some(Comma) => {
-      state.mode = ValueLoop;
-      CompoundValueEnd
-    }
-
-    /* if a semicolon or closing brace is encountered, escape back into the MainLoop */
-    | Some(Semicolon)
-    | Some(Brace(Closing)) => {
-      state.mode = MainLoop;
-      CompoundValueEnd
-    }
-
-    | _ => {
-      raise(LazyStream.Error(
-        "Unexpected token while parsing a compound value, expected a Word or Interpolation"
-      ))
-    }
-    }
-  };
-
   let valueLoop = () : node => {
     let token = BufferStream.next(buffer);
 
     switch (parseToken(token), parseToken(BufferStream.peek(buffer))) {
-    | (Some(Interpolation(_)), Some(Interpolation(_)))
-    | (Some(Interpolation(_)), Some(Word(_)))
-    | (Some(Word(_)), Some(Interpolation(_)))
-    | (Some(Word(_)), Some(Word(_))) => {
-      BufferStream.putOption(token, buffer); /* put token back onto the buffer */
-      state.mode = CompoundValueMode;
-      CompoundValueStart
-    }
-
     /* emit an interpolation value and continue parsing values in ValueLoop mode */
     | (Some(value), Some(Comma)) => {
       BufferStream.junk(buffer); /* skip over comma token */
@@ -251,6 +204,8 @@ let parser = (s: Lexer.lexerStream) => {
     switch (parseToken(firstToken), parseToken(LazyStream.peek(s))) {
     /* skip over free semicolons */
     | (Some(Semicolon), _) => mainLoop()
+
+    /* enter declaration or selector parser */
     | (Some(Word(_)), Some(Colon))
     | (Some(Interpolation(_)), Some(Colon)) => {
       /* buffer first token for future decl/selector parsing */
@@ -258,25 +213,26 @@ let parser = (s: Lexer.lexerStream) => {
       parseDeclOrSelector()
     }
 
+    /* parse at-rules */
     | (Some(AtWord(_)), _) => {
       /* buffer first token for future at-rule parsing */
       BufferStream.bufferOption(firstToken, buffer);
       RuleEnd /* TODO: parse at-rule */
     }
 
-    /* increase nestedness and start SelectorLoop when opening curly brace is encountered */
+    /* increase ruleLevel and start SelectorLoop when opening curly brace is encountered */
     | (Some(t), _) when isSelectorToken(t) => {
       /* buffer first token for future selector parsing */
       BufferStream.bufferOption(firstToken, buffer);
 
-      state.nestedness = state.nestedness + 1;
+      state.ruleLevel = state.ruleLevel + 1;
       state.mode = SelectorLoop;
       selectorLoop()
     }
 
-    /* decrease nestedness when closing curly brace is encountered */
-    | (Some(Brace(Closing)), _) when state.nestedness > 0 => {
-      state.nestedness = state.nestedness - 1;
+    /* decrease ruleLevel when closing curly brace is encountered */
+    | (Some(Brace(Closing)), _) when state.ruleLevel > 0 => {
+      state.ruleLevel = state.ruleLevel - 1;
       RuleEnd
     }
 
@@ -285,7 +241,7 @@ let parser = (s: Lexer.lexerStream) => {
     }
 
     /* EOF is only allowed when all rules have been closed with closing curly braces */
-    | (None, _) when state.nestedness > 0 => {
+    | (None, _) when state.ruleLevel > 0 => {
       raise(LazyStream.Error("Unexpected EOF, expected all rules to be closed"))
     }
 
@@ -299,17 +255,12 @@ let parser = (s: Lexer.lexerStream) => {
       | MainLoop => mainLoop()
       | PropertyLoop => propertyLoop()
       | ValueLoop => valueLoop()
-      | CompoundValueMode => compoundValueLoop()
       | SelectorLoop => selectorLoop()
       };
 
     switch node {
     | EOF => None
-    | value => {
-      /* store node as "last node" */
-      state.lastNode = value;
-      Some(value)
-    }
+    | value => Some(value)
     }
   });
 

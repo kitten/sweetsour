@@ -36,8 +36,7 @@ type tokenValue =
   | EOF;
 
 /* A token represented by its value and a line number */
-type token =
-  | Token(tokenValue, int);
+type token = Token(tokenValue, int);
 
 /* Stream type for the LexerStream */
 type lexerStream = LazyStream.t(token);
