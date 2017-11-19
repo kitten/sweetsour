@@ -142,6 +142,11 @@ let parser = (s: Lexer.lexerStream) => {
         }
       }
 
+      | Some(Str(str)) when level > 0 => {
+        LinkedList.add(Value(str), nodeBuffer);
+        parseValueLevel(nodeBuffer, length + 1, level)
+      }
+
       | Some(Interpolation(x)) => {
         BufferStream.junk(buffer);
         LinkedList.add(ValueRef(x), nodeBuffer);
