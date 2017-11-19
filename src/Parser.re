@@ -104,28 +104,8 @@ let parser = (s: Lexer.lexerStream) => {
     }
   };
 
-  /* parses all value nodes recursively, including functions and compound values,
-     and returns the resulting node buffer */
-  let parseValues = () : LinkedList.t(node) => {
-    /* wraps node buffer in compound value nodes when more than one value was parsed (length > 1) */
-    let wrapBufferAsCompound = (nodeBuffer: LinkedList.t(node), length: int) => {
-      switch (length) {
-        | 1 => nodeBuffer
-        | _ => {
-          LinkedList.unshift(CompoundValueStart, nodeBuffer);
-          LinkedList.add(CompoundValueEnd, nodeBuffer);
-          nodeBuffer
-        }
-      }
-    };
-
-    /* wraps node buffer in function nodes using the passed function name (fnName) */
-    let wrapBufferAsFunction = (nodeBuffer: LinkedList.t(node), fnName: string) => {
-      LinkedList.unshift(FunctionStart(fnName), nodeBuffer);
-      LinkedList.add(FunctionEnd, nodeBuffer);
-      nodeBuffer
-    };
-
+  /* parses a string starting after the first quote */
+  let parseString = (kind: Lexer.quoteKind) : LinkedList.t(node) => {
     /* add a Value node to nodeBuffer if the string is not empty */
     let addValueNode = (str: string, nodeBuffer: LinkedList.t(node)) => {
       switch (str) {
@@ -137,47 +117,66 @@ let parser = (s: Lexer.lexerStream) => {
       }
     };
 
-    /* parses a string starting after the first quote */
-    let parseString = (kind: Lexer.quoteKind) : LinkedList.t(node) => {
-      let nodeBuffer = LinkedList.create();
+    let nodeBuffer = LinkedList.create();
 
-      /* turn the quote kind into a string */
-      let quoteStr = switch (kind) {
-        | Double => "\""
-        | Single => "'"
-      };
+    /* turn the quote kind into a string */
+    let quoteStr = switch (kind) {
+      | Double => "\""
+      | Single => "'"
+    };
 
-      let rec parse = (str: string, containsInterpolation: bool) => {
-        switch (getTokenValue(BufferStream.next(buffer))) {
-        /* interpolations are added as "ValueRef"s and containsInterpolation is set to true */
-        | Some(Interpolation(x)) => {
-          /* add the Value of the past str string and then add the ValueRef */
-          LinkedList.add(ValueRef(x), addValueNode(str, nodeBuffer));
-          parse("", true)
+    let rec parse = (str: string, containsInterpolation: bool) => {
+      switch (getTokenValue(BufferStream.next(buffer))) {
+      /* interpolations are added as "ValueRef"s and containsInterpolation is set to true */
+      | Some(Interpolation(x)) => {
+        /* add the Value of the past str string and then add the ValueRef */
+        LinkedList.add(ValueRef(x), addValueNode(str, nodeBuffer));
+        parse("", true)
+      }
+
+      /* when the ending quote is reached, return the result */
+      | Some(Quote(endKind)) when endKind === kind => {
+        /* if interpolations or more than one string were parsed, wrap the nodes in a compound */
+        if (nodeBuffer.size > 1 || containsInterpolation) {
+          LinkedList.unshift(StringStart(quoteStr), addValueNode(str, nodeBuffer));
+          LinkedList.add(StringEnd, nodeBuffer);
+          nodeBuffer
+        } else {
+          /* otherwise just add a value node containing the string */
+          addValueNode(quoteStr ++ str ++ quoteStr, nodeBuffer)
         }
+      }
 
-        /* when the ending quote is reached, return the result */
-        | Some(Quote(endKind)) when endKind === kind => {
-          /* if interpolations or more than one string were parsed, wrap the nodes in a compound */
-          if (nodeBuffer.size > 1 || containsInterpolation) {
-            LinkedList.unshift(StringStart(quoteStr), addValueNode(str, nodeBuffer));
-            LinkedList.add(StringEnd, nodeBuffer);
-            nodeBuffer
-          } else {
-            /* otherwise just add a value node containing the string */
-            addValueNode(quoteStr ++ str ++ quoteStr, nodeBuffer)
-          }
-        }
+      /* strings are concatenated into the str argument */
+      | Some(Str(rest)) => parse(str ++ rest, containsInterpolation)
 
-        /* strings are concatenated into the str argument */
-        | Some(Str(rest)) => parse(str ++ rest, containsInterpolation)
+      /* all other tokens are invalid inside a string */
+      | _ => raise(ParserError("Unexpected token while parsing string", state.line))
+      }
+    };
 
-        /* all other tokens are invalid inside a string */
-        | _ => raise(ParserError("Unexpected token while parsing string", state.line))
-        }
-      };
+    parse("", false)
+  };
 
-      parse("", false)
+  /* parses all value nodes recursively, including functions and compound values,
+     and returns the resulting node buffer */
+  let parseValues = () : LinkedList.t(node) => {
+    /* wraps node buffer in compound value nodes when more than one value was parsed (length > 1) */
+    let wrapBufferAsCompound = (nodeBuffer: LinkedList.t(node), length: int) => {
+      if (length === 1) {
+        nodeBuffer
+      } else {
+        LinkedList.unshift(CompoundValueStart, nodeBuffer);
+        LinkedList.add(CompoundValueEnd, nodeBuffer);
+        nodeBuffer
+      }
+    };
+
+    /* wraps node buffer in function nodes using the passed function name (fnName) */
+    let wrapBufferAsFunction = (nodeBuffer: LinkedList.t(node), fnName: string) => {
+      LinkedList.unshift(FunctionStart(fnName), nodeBuffer);
+      LinkedList.add(FunctionEnd, nodeBuffer);
+      nodeBuffer
     };
 
     /* recursively parse all values by dividing the stream into functions, compounds, and lastly values */
