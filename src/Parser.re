@@ -1,5 +1,8 @@
 open Common;
 
+/* an error raised by the parser contains a message and a line number */
+exception ParserError(string, int);
+
 /* For RuleStart kinds */
 type ruleKind =
   | StyleRule /* CSSOM */
@@ -61,6 +64,8 @@ type parserMode =
 
 /* Running state for parsing */
 type state = {
+  /* value to keep track of the current line number; must be updated for every incoming lexer token */
+  mutable line: int,
   /* value to keep track of the current rule nesting */
   mutable ruleLevel: int,
   /* the current mode of the parser */
@@ -72,13 +77,17 @@ let parser = (s: Lexer.lexerStream) => {
   let buffer = BufferStream.from(s);
 
   let state = {
+    line: 1,
     ruleLevel: 0,
     mode: MainLoop
   };
 
-  let parseToken = (t: option(Lexer.token)) : option(Lexer.tokenValue) => {
+  let getTokenValue = (t: option(Lexer.token)) : option(Lexer.tokenValue) => {
     switch t {
-    | Some(Token(value, _)) => Some(value)
+    | Some(Token(value, line)) => {
+      state.line = line;
+      Some(value)
+    }
     | None => None
     }
   };
@@ -119,11 +128,11 @@ let parser = (s: Lexer.lexerStream) => {
 
     /* recursively parse all values by dividing the stream into functions, compounds, and lastly values */
     let rec parseValueLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) => {
-      switch (parseToken(BufferStream.peek(buffer))) {
+      switch (getTokenValue(BufferStream.peek(buffer))) {
       | Some(Word(word)) => {
         BufferStream.junk(buffer);
 
-        switch (parseToken(BufferStream.peek(buffer))) {
+        switch (getTokenValue(BufferStream.peek(buffer))) {
           | Some(Paren(Opening)) => {
             BufferStream.junk(buffer);
 
@@ -171,7 +180,7 @@ let parser = (s: Lexer.lexerStream) => {
         wrapBufferAsCompound(nodeBuffer, length)
       }
 
-      | _ => raise(LazyStream.Error("Unexpected token while parsing values"))
+      | _ => raise(ParserError("Unexpected token while parsing values", state.line))
       }
     };
 
@@ -185,20 +194,21 @@ let parser = (s: Lexer.lexerStream) => {
   let propertyLoop = () : node => {
     /* emit node for word or interpolation property */
     let node =
-      switch (parseToken(BufferStream.next(buffer))) {
+      switch (getTokenValue(BufferStream.next(buffer))) {
       | Some(Word(str)) => Property(str)
       | Some(Interpolation(x)) => PropertyRef(x)
       | _ => {
-        raise(LazyStream.Error(
-          "Unexpected token while parsing a property, expected a Word or Interpolation"
+        raise(ParserError(
+          "Unexpected token while parsing a property, expected a Word or Interpolation",
+          state.line
         ))
       }
       };
 
     /* enforce a colon token after a property */
-    switch (parseToken(BufferStream.next(buffer))) {
+    switch (getTokenValue(BufferStream.next(buffer))) {
     | Some(Colon) => ()
-    | _ => raise(LazyStream.Error("Unexpected token after parsing a property, expected a Colon"))
+    | _ => raise(ParserError("Unexpected token after parsing a property, expected a Colon", state.line))
     };
 
     /* preparse values and start the buffer loop to consume & emit them */
@@ -212,7 +222,7 @@ let parser = (s: Lexer.lexerStream) => {
   let rec parseDeclOrSelector = () : node => {
     let token = LazyStream.peek(s);
 
-    switch (parseToken(token)) {
+    switch (getTokenValue(token)) {
     /* if an opening curly brace is reached, the selector loop should be triggered */
     | Some(Brace(Opening)) => {
       state.mode = SelectorLoop;
@@ -235,14 +245,14 @@ let parser = (s: Lexer.lexerStream) => {
       parseDeclOrSelector()
     }
 
-    | None => raise(LazyStream.Error("Unexpected EOF, expected selector or declaration"))
+    | None => raise(ParserError("Unexpected EOF, expected selector or declaration", state.line))
     }
   };
 
   let rec mainLoop = () : node => {
     let firstToken = LazyStream.next(s);
 
-    switch (parseToken(firstToken), parseToken(LazyStream.peek(s))) {
+    switch (getTokenValue(firstToken), getTokenValue(LazyStream.peek(s))) {
     /* skip over free semicolons */
     | (Some(Semicolon), _) => mainLoop()
 
@@ -278,12 +288,12 @@ let parser = (s: Lexer.lexerStream) => {
     }
 
     | (Some(_), _) => {
-      raise(LazyStream.Error("Unexpected token; expected selector, declaration, or at-rule"))
+      raise(ParserError("Unexpected token; expected selector, declaration, or at-rule", state.line))
     }
 
     /* EOF is only allowed when all rules have been closed with closing curly braces */
     | (None, _) when state.ruleLevel > 0 => {
-      raise(LazyStream.Error("Unexpected EOF, expected all rules to be closed"))
+      raise(ParserError("Unexpected EOF, expected all rules to be closed", state.line))
     }
 
     | (None, _) => EOF

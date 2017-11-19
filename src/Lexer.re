@@ -1,5 +1,8 @@
 open Common;
 
+/* an error raised by the lexer contains a message and a line number */
+exception LexerError(string, int);
+
 /* For tokens that are opening or closing the difference can be abstracted w/o their value */
 type pairwiseKind =
   | Opening
@@ -121,7 +124,7 @@ let lexer = (s: Input.inputStream) => {
     | Some(_) => skipCommentContent()
 
     /* a comment should be closed, since we don't want to deal with input weirdness */
-    | None => raise(LazyStream.Error("Unexpected EOF, expected end of comment"))
+    | None => raise(LexerError("Unexpected EOF, expected end of comment", state.line))
     }
   };
   /* skip all whitespace-like characters */
@@ -185,13 +188,14 @@ let lexer = (s: Input.inputStream) => {
 
       /* it's too risky to allow value-interpolations as part of escapes */
       | Some(Interpolation(_)) => {
-        raise(LazyStream.Error(
-          "Unexpected interpolation after backslash, expected escaped content"
+        raise(LexerError(
+          "Unexpected interpolation after backslash, expected escaped content",
+          state.line
         ))
       }
 
       /* an escape (backslash) must be followed by at least another char, thus an EOF is unacceptable */
-      | None => raise(LazyStream.Error("Unexpected EOF after backslash, expected escaped content"))
+      | None => raise(LexerError("Unexpected EOF after backslash, expected escaped content", state.line))
       };
 
     "\\" ++ escaped
@@ -248,7 +252,7 @@ let lexer = (s: Input.inputStream) => {
 
     /* nested arguments (parentheses) inside StrictString arguments are not allowed */
     | (Some(Char('(')), StringArg, _) => {
-      raise(LazyStream.Error("Unexpected opening parenthesis inside an unquoted argument"))
+      raise(LexerError("Unexpected opening parenthesis inside an unquoted argument", state.line))
     }
 
     | (Some(Char('(')), ContentArg, _) => {
@@ -267,7 +271,7 @@ let lexer = (s: Input.inputStream) => {
       | Some(Char(')')) =>
         state.mode = MainLoop;
         Str(str)
-      | _ => raise(LazyStream.Error("Unexpected whitespace, expected closing parenthesis"))
+      | _ => raise(LexerError("Unexpected whitespace, expected closing parenthesis", state.line))
       }
     }
 
@@ -293,7 +297,7 @@ let lexer = (s: Input.inputStream) => {
     }
 
     /* an unquoted argument must be explicitly ended, thus an EOF is unacceptable */
-    | (None, _, _) => raise(LazyStream.Error("Unexpected EOF before end of unquoted argument"))
+    | (None, _, _) => raise(LexerError("Unexpected EOF before end of unquoted argument", state.line))
     }
   };
 
@@ -318,7 +322,7 @@ let lexer = (s: Input.inputStream) => {
     }
 
     /* newlines inside strings are not permitted, except when they're escaped */
-    | Some(Char('\n')) => raise(LazyStream.Error("Expected newline inside string to be escaped"))
+    | Some(Char('\n')) => raise(LexerError("Expected newline inside string to be escaped", state.line))
 
     /* every char is accepted into the string */
     | Some(Char(c)) => {
@@ -336,7 +340,7 @@ let lexer = (s: Input.inputStream) => {
     }
 
     /* a string must be explicitly ended, thus an EOF is unacceptable */
-    | None => raise(LazyStream.Error("Unexpected EOF before end of string"))
+    | None => raise(LexerError("Unexpected EOF before end of string", state.line))
     }
   };
 
@@ -347,7 +351,7 @@ let lexer = (s: Input.inputStream) => {
     switch (LazyStream.next(s)) {
     | Some(Char('"')) => Quote(Double)
     | Some(Char('\'')) => Quote(Single)
-    | _ => raise(LazyStream.Error("Expected quote at the end of the last string"))
+    | _ => raise(LexerError("Expected quote at the end of the last string", state.line))
     }
   };
 
@@ -458,7 +462,7 @@ let lexer = (s: Input.inputStream) => {
     /* all unrecognised characters will be raised outside of designated matching loops */
     | Some(Char(c)) => {
       let msg = "Unexpected token encountered: " ++ string_of_char(c);
-      raise(LazyStream.Error(msg))
+      raise(LexerError(msg, state.line))
     }
 
     | None => EOF
