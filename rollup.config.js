@@ -1,11 +1,16 @@
 import nodeResolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
+import babel from 'rollup-plugin-babel';
 import uglify from 'rollup-plugin-uglify-es';
 
 const plugins = [
   nodeResolve(),
   commonjs({
     ignoreGlobal: true,
+  }),
+  babel({
+    babelrc: false,
+    plugins: ['babel-plugin-closure-elimination']
   })
 ];
 
