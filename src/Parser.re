@@ -126,6 +126,7 @@ let parser = (s: Lexer.lexerStream) => {
       nodeBuffer
     };
 
+    /* add a Value node to nodeBuffer if the string is not empty */
     let addValueNode = (str: string, nodeBuffer: LinkedList.t(node)) => {
       switch (str) {
       | "" => nodeBuffer
@@ -136,8 +137,11 @@ let parser = (s: Lexer.lexerStream) => {
       }
     };
 
+    /* parses a string starting after the first quote */
     let parseString = (kind: Lexer.quoteKind) : LinkedList.t(node) => {
       let nodeBuffer = LinkedList.create();
+
+      /* turn the quote kind into a string */
       let quoteStr = switch (kind) {
         | Double => "\""
         | Single => "'"
@@ -145,23 +149,30 @@ let parser = (s: Lexer.lexerStream) => {
 
       let rec parse = (str: string, containsInterpolation: bool) => {
         switch (getTokenValue(BufferStream.next(buffer))) {
+        /* interpolations are added as "ValueRef"s and containsInterpolation is set to true */
         | Some(Interpolation(x)) => {
+          /* add the Value of the past str string and then add the ValueRef */
           LinkedList.add(ValueRef(x), addValueNode(str, nodeBuffer));
           parse("", true)
         }
 
+        /* when the ending quote is reached, return the result */
         | Some(Quote(endKind)) when endKind === kind => {
+          /* if interpolations or more than one string were parsed, wrap the nodes in a compound */
           if (nodeBuffer.size > 1 || containsInterpolation) {
             LinkedList.unshift(StringStart(quoteStr), addValueNode(str, nodeBuffer));
             LinkedList.add(StringEnd, nodeBuffer);
             nodeBuffer
           } else {
+            /* otherwise just add a value node containing the string */
             addValueNode(quoteStr ++ str ++ quoteStr, nodeBuffer)
           }
         }
 
+        /* strings are concatenated into the str argument */
         | Some(Str(rest)) => parse(str ++ rest, containsInterpolation)
 
+        /* all other tokens are invalid inside a string */
         | _ => raise(ParserError("Unexpected token while parsing string", state.line))
         }
       };
@@ -172,63 +183,77 @@ let parser = (s: Lexer.lexerStream) => {
     /* recursively parse all values by dividing the stream into functions, compounds, and lastly values */
     let rec parseValueLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) => {
       switch (getTokenValue(BufferStream.peek(buffer))) {
+      /* turn words into values or functions */
       | Some(Word(word)) => {
         BufferStream.junk(buffer);
 
+        /* detect opening parentheses to start to parse functions */
         switch (getTokenValue(BufferStream.peek(buffer))) {
           | Some(Paren(Opening)) => {
             BufferStream.junk(buffer);
 
+            /* parse the deeper level and wrap the result in a function */
             let innerValues = wrapBufferAsFunction(
               parseValueLevel(LinkedList.create(), 0, level + 1),
               word
             );
 
+            /* continue parsing nodes on this level */
             parseValueLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
           }
 
+          /* when the token is a value and not a function, emit the value */
           | _ => {
             LinkedList.add(Value(word), nodeBuffer);
+            /* continue parsing the current level */
             parseValueLevel(nodeBuffer, length + 1, level)
           }
         }
       }
 
+      /* detect quotes and start parsing strings */
       | Some(Quote(kind)) => {
         BufferStream.junk(buffer);
         let innerValues = parseString(kind);
         parseValueLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
       }
 
+      /* free strings belong to url() or calc() and can just be added as values on deeper levels */
       | Some(Str(str)) when level > 0 => {
         LinkedList.add(Value(str), nodeBuffer);
         parseValueLevel(nodeBuffer, length + 1, level)
       }
 
+      /* interpolations are parsed as "ValueRef"s */
       | Some(Interpolation(x)) => {
         BufferStream.junk(buffer);
         LinkedList.add(ValueRef(x), nodeBuffer);
         parseValueLevel(nodeBuffer, length + 1, level)
       }
 
+      /* wrap the past values as compounds, if necessary, and continue parsing on the same level */
       | Some(Comma) => {
         BufferStream.junk(buffer);
         let first = wrapBufferAsCompound(nodeBuffer, length);
         let second = parseValueLevel(LinkedList.create(), 0, level);
+        /* concatenate the previous and the next nodes */
         LinkedList.concat(first, second)
       }
 
+      /* when the parser is on a deeper level, a closed parenthesis indicates the end of a function */
       | Some(Paren(Closing)) when level > 0 => {
         BufferStream.junk(buffer);
         wrapBufferAsCompound(nodeBuffer, length)
       }
 
+      /* when the parser is not on a deeper level, the following tokens indicate the end of the values */
       | None
       | Some(Brace(Closing))
       | Some(Semicolon) when level === 0 => {
         wrapBufferAsCompound(nodeBuffer, length)
       }
 
+      /* EOF or any other tokens are invalid here */
       | _ => raise(ParserError("Unexpected token while parsing values", state.line))
       }
     };
@@ -294,6 +319,7 @@ let parser = (s: Lexer.lexerStream) => {
       parseDeclOrSelector()
     }
 
+    /* raise EOF when the parser is in a partial decl/selector state */
     | None => raise(ParserError("Unexpected EOF, expected selector or declaration", state.line))
     }
   };
@@ -336,6 +362,7 @@ let parser = (s: Lexer.lexerStream) => {
       RuleEnd
     }
 
+    /* all unrecognised tokens will be raised, with a hint as to what stage the parser's in */
     | (Some(_), _) => {
       raise(ParserError("Unexpected token; expected selector, declaration, or at-rule", state.line))
     }
@@ -345,17 +372,22 @@ let parser = (s: Lexer.lexerStream) => {
       raise(ParserError("Unexpected EOF, expected all rules to be closed", state.line))
     }
 
+    /* EOF will be emitted when the ruleLevel === 0 */
     | (None, _) => EOF
     }
   };
 
   /* emits nodes from a preparsed buffer */
   let bufferLoop = (nodes: LinkedList.t(node)) : node => {
+    /* remove a node from the buffered list */
     switch (LinkedList.take(nodes)) {
+      /* when the end of the buffered nodes is reached, return to the main loop */
       | None => {
         state.mode = MainLoop;
         mainLoop()
       }
+
+      /* emit node */
       | Some(node) => node
     }
   };
@@ -370,7 +402,7 @@ let parser = (s: Lexer.lexerStream) => {
       };
 
     switch node {
-    | EOF => None
+    | EOF => None /* special node to signalise the end of the stream */
     | value => Some(value)
     }
   });
