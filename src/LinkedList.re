@@ -78,3 +78,18 @@ let unshift = (value: 'a, queue: t('a)) => {
     queue.head = Some(node)
   }
 };
+
+/* consumes `b` and appends its values onto `a` */
+let concat = (a: t('a), b: t('a)) => {
+  let rec consume = () => {
+    switch (take(b)) {
+    | Some(value) => {
+      add(value, a);
+      consume()
+    }
+    | None => a
+    }
+  };
+
+  consume();
+};

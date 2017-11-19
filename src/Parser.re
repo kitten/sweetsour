@@ -56,7 +56,7 @@ type parserStream = LazyStream.t(node);
 type parserMode =
   | MainLoop
   | PropertyLoop
-  | ValueLoop
+  | BufferLoop(LinkedList.t(node))
   | SelectorLoop;
 
 /* Running state for parsing */
@@ -83,18 +83,6 @@ let parser = (s: Lexer.lexerStream) => {
     }
   };
 
-  let parseValueOrInterpolation = (t: Lexer.tokenValue) => {
-    switch t {
-    | Word(word) => Value(word)
-    | Interpolation(x) => ValueRef(x)
-    | _ => {
-      raise(LazyStream.Error(
-        "Unexpected token while parsing a value, expected a Word or Interpolation"
-      ))
-    }
-    }
-  };
-
   /* recognises all tokens that are not valid as part of a selector;
      must be updated when Lexer tokens are changed */
   let isSelectorToken = (t: Lexer.tokenValue) => {
@@ -105,6 +93,84 @@ let parser = (s: Lexer.lexerStream) => {
     | Semicolon => false
     | _ => true
     }
+  };
+
+  /* parses all value nodes recursively, including functions and compound values,
+     and returns the resulting node buffer */
+  let parseValues = (): LinkedList.t(node) => {
+    /* wraps node buffer in compound value nodes when more than one value was parsed (length > 1) */
+    let wrapBufferAsCompound = (nodeBuffer: LinkedList.t(node), length: int) => {
+      switch (length) {
+        | 1 => nodeBuffer
+        | _ => {
+          LinkedList.unshift(CompoundValueStart, nodeBuffer);
+          LinkedList.add(CompoundValueEnd, nodeBuffer);
+          nodeBuffer
+        }
+      }
+    };
+
+    /* wraps node buffer in function nodes using the passed function name (fnName) */
+    let wrapBufferAsFunction = (nodeBuffer: LinkedList.t(node), fnName: string) => {
+      LinkedList.unshift(FunctionStart(fnName), nodeBuffer);
+      LinkedList.add(FunctionEnd, nodeBuffer);
+      nodeBuffer
+    };
+
+    /* recursively parse all values by dividing the stream into functions, compounds, and lastly values */
+    let rec parseValueLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) => {
+      switch (parseToken(BufferStream.peek(buffer))) {
+      | Some(Word(word)) => {
+        BufferStream.junk(buffer);
+
+        switch (parseToken(BufferStream.peek(buffer))) {
+          | Some(Paren(Opening)) => {
+            BufferStream.junk(buffer);
+
+            let innerValues = wrapBufferAsFunction(
+              parseValueLevel(LinkedList.create(), 0, level + 1),
+              word
+            );
+
+            parseValueLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
+          }
+
+          | _ => {
+            LinkedList.add(Value(word), nodeBuffer);
+            parseValueLevel(nodeBuffer, length + 1, level)
+          }
+        }
+      }
+
+      | Some(Interpolation(x)) => {
+        BufferStream.junk(buffer);
+        LinkedList.add(ValueRef(x), nodeBuffer);
+        parseValueLevel(nodeBuffer, length + 1, level)
+      }
+
+      | Some(Comma) => {
+        BufferStream.junk(buffer);
+        let first = wrapBufferAsCompound(nodeBuffer, length);
+        let second = parseValueLevel(LinkedList.create(), 0, level);
+        LinkedList.concat(first, second)
+      }
+
+      | Some(Paren(Closing)) when level > 0 => {
+        BufferStream.junk(buffer);
+        wrapBufferAsCompound(nodeBuffer, length)
+      }
+
+      | None
+      | Some(Brace(Closing))
+      | Some(Semicolon) when level === 0 => {
+        wrapBufferAsCompound(nodeBuffer, length)
+      }
+
+      | _ => raise(LazyStream.Error("Unexpected token while parsing values"))
+      }
+    };
+
+    parseValueLevel(LinkedList.create(), 0, 0);
   };
 
   let selectorLoop = () : node => {
@@ -130,40 +196,10 @@ let parser = (s: Lexer.lexerStream) => {
     | _ => raise(LazyStream.Error("Unexpected token after parsing a property, expected a Colon"))
     };
 
-    /* switch to ValueLoop */
-    state.mode = ValueLoop;
+    /* preparse values and start the buffer loop to consume & emit them */
+    state.mode = BufferLoop(parseValues());
+
     node
-  };
-
-  let valueLoop = () : node => {
-    let token = BufferStream.next(buffer);
-
-    switch (parseToken(token), parseToken(BufferStream.peek(buffer))) {
-    /* emit an interpolation value and continue parsing values in ValueLoop mode */
-    | (Some(value), Some(Comma)) => {
-      BufferStream.junk(buffer); /* skip over comma token */
-      parseValueOrInterpolation(value)
-    }
-
-    /* emit an interpolation or value and switch back to MainLoop mode */
-    | (Some(value), Some(Semicolon)) => {
-      BufferStream.junk(buffer); /* skip over semicolon token */
-      state.mode = MainLoop;
-      parseValueOrInterpolation(value)
-    }
-
-    /* emit a value or interpolation, keep closing brace around, and switch back to MainLoop mode */
-    | (Some(value), Some(Brace(Closing))) => {
-      state.mode = MainLoop;
-      parseValueOrInterpolation(value)
-    }
-
-    | _ => {
-      raise(LazyStream.Error(
-        "Unexpected token while parsing a value, expected a Word or Interpolation"
-      ))
-    }
-    }
   };
 
   /* buffers all tokens until a semicolon or brace is reached to determine whether
@@ -249,12 +285,23 @@ let parser = (s: Lexer.lexerStream) => {
     }
   };
 
+  /* emits nodes from a preparsed buffer */
+  let bufferLoop = (nodes: LinkedList.t(node)) : node => {
+    switch (LinkedList.take(nodes)) {
+      | None => {
+        state.mode = MainLoop;
+        mainLoop()
+      }
+      | Some(node) => node
+    }
+  };
+
   let next: [@bs] (unit => option(node)) = [@bs] (() => {
     let node =
       switch state.mode {
       | MainLoop => mainLoop()
       | PropertyLoop => propertyLoop()
-      | ValueLoop => valueLoop()
+      | BufferLoop(nodes) => bufferLoop(nodes)
       | SelectorLoop => selectorLoop()
       };
 
