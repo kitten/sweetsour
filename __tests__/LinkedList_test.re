@@ -67,4 +67,42 @@ describe("LinkedList", () => {
         |> toEqual([ Some("test 1"), Some("test 1"), Some("test 2"), None ]);
     });
   });
+
+  describe("concat", () => {
+    open Expect;
+
+    it("returns a when b is empty", () => {
+      let a = create();
+      add("test 1", a);
+      let b = create();
+
+      expect(concat(a, b)) |> toBe(a);
+    });
+
+    it("returns b when a is empty", () => {
+      let a = create();
+      let b = create();
+      add("test 1", b);
+
+      expect(concat(a, b)) |> toBe(b);
+    });
+
+    it("adds b.head to a.tail to concatenate the lists", () => {
+      let a = create();
+      add("test 1", a);
+      add("test 2", a);
+      let b = create();
+      add("test 3", b);
+      add("test 4", b);
+      let con = concat(a, b);
+
+      expect([take(con), take(con), take(con), take(con), take(con)] == [
+        Some("test 1"),
+        Some("test 2"),
+        Some("test 3"),
+        Some("test 4"),
+        None
+      ]) |> toBe(true);
+    });
+  });
 });

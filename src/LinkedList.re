@@ -81,15 +81,12 @@ let unshift = (value: 'a, queue: t('a)) => {
 
 /* consumes `b` and appends its values onto `a` */
 let concat = (a: t('a), b: t('a)) => {
-  let rec consume = () => {
-    switch (take(b)) {
-    | Some(value) => {
-      add(value, a);
-      consume()
-    }
-    | None => a
-    }
-  };
-
-  consume();
+  switch (a.tail, b.head) {
+  | (Some (tail), Some(head)) => {
+    tail.next = Some(head);
+    a
+  }
+  | (_, None) => a
+  | (None, _) => b
+  }
 };
