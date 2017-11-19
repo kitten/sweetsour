@@ -220,6 +220,7 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* free strings belong to url() or calc() and can just be added as values on deeper levels */
       | Some(Str(str)) when level > 0 => {
+        BufferStream.junk(buffer);
         LinkedList.add(Value(str), nodeBuffer);
         parseValueLevel(nodeBuffer, length + 1, level)
       }
