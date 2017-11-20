@@ -483,8 +483,17 @@ let parser = (s: Lexer.lexerStream) => {
     let token = LazyStream.peek(s);
 
     switch (getTokenValue(token)) {
-    /* if an opening curly brace is reached, the selector loop should be triggered */
-    | Some(Brace(Opening)) => {
+    /* if an opening curly brace is reached, the selector loop should be triggered;
+       it should also be triggered when a token is encountered that the PropertyLoop doesn't support */
+    | Some(WordCombinator)
+    | Some(Brace(Opening))
+    | Some(Ampersand)
+    | Some(Plus)
+    | Some(Arrow)
+    | Some(Tilde)
+    | Some(Asterisk)
+    /* NOTE: The MainLoop skips the initial property's colon so another colon hints at a selector */
+    | Some(Colon) => {
       state.ruleLevel = state.ruleLevel + 1;
       state.mode = SelectorLoop;
       RuleStart(StyleRule) /* emit the starting node for the style rule */
@@ -513,16 +522,20 @@ let parser = (s: Lexer.lexerStream) => {
 
   let rec mainLoop = () : node => {
     let firstToken = LazyStream.next(s);
+    let secondToken = LazyStream.peek(s);
 
-    switch (getTokenValue(firstToken), getTokenValue(LazyStream.peek(s))) {
+    switch (getTokenValue(firstToken), getTokenValue(secondToken)) {
     /* skip over free semicolons */
     | (Some(Semicolon), _) => mainLoop()
 
     /* enter declaration or selector parser */
     | (Some(Word(_)), Some(Colon))
     | (Some(Interpolation(_)), Some(Colon)) => {
-      /* buffer first token for future decl/selector parsing */
+      /* buffer first and second token for future decl/selector parsing */
       BufferStream.bufferOption(firstToken, buffer);
+      LazyStream.junk(s);
+      BufferStream.bufferOption(secondToken, buffer);
+
       parseDeclOrSelector()
     }
 
