@@ -208,6 +208,73 @@ describe("Parser", () => {
         RuleEnd
       |]) |> toBe(true);
     });
+
+    it("throws when an unexpected token is reached while parsing pseudo selectors", () => {
+      expect(() => parse([|
+        Token(Colon, 1),
+        Token(Brace(Opening), 1),
+        Token(Brace(Closing), 2)
+      |])) |> toThrowMessage("Unexpected token while parsing pseudo selector");
+    });
+
+    /* Parse: `& > div {}` */
+    it("parses child combinator", () => {
+      expect(parse([|
+        Token(Ampersand, 1),
+        Token(Arrow, 1),
+        Token(Word("div"), 1),
+        Token(Brace(Opening), 1),
+        Token(Brace(Closing), 2)
+      |]) == [|
+        RuleStart(StyleRule),
+        CompoundSelectorStart,
+        ParentSelector,
+        ChildCombinator,
+        Selector("div"),
+        CompoundSelectorEnd,
+        RuleEnd
+      |]) |> toBe(true);
+    });
+
+    /* Parse: `& >> div {}` */
+    it("parses doubled child combinator", () => {
+      expect(parse([|
+        Token(Ampersand, 1),
+        Token(Arrow, 1),
+        Token(Arrow, 1),
+        Token(Word("div"), 1),
+        Token(Brace(Opening), 1),
+        Token(Brace(Closing), 2)
+      |]) == [|
+        RuleStart(StyleRule),
+        CompoundSelectorStart,
+        ParentSelector,
+        DoubledChildCombinator,
+        Selector("div"),
+        CompoundSelectorEnd,
+        RuleEnd
+      |]) |> toBe(true);
+    });
+
+    it("throws when two combinators in a row are encountered", () => {
+      expect(() => parse([|
+        Token(Ampersand, 1),
+        Token(Arrow, 1),
+        Token(Tilde, 1),
+        Token(Word("div"), 1),
+        Token(Brace(Opening), 1),
+        Token(Brace(Closing), 2)
+      |])) |> toThrowMessage("Unexpected token while parsing selectors");
+    });
+
+    it("throws when no selector is following a combinator", () => {
+      expect(() => parse([|
+        Token(Ampersand, 1),
+        Token(Arrow, 1),
+        Token(Brace(Opening), 1),
+        Token(Brace(Closing), 2)
+      |])) |> toThrowMessage("Unexpected combinator; expected no combinator before commas, parentheses, colons, and braces while parsing selectors");
+    });
   });
 
   describe("Declarations", () => {
@@ -219,6 +286,21 @@ describe("Parser", () => {
         Token(Word("color"), 1),
         Token(Colon, 1),
         Token(Word("papayawhip"), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("color"),
+        Value("papayawhip"),
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `;color: papayawhip;;` */
+    it("ignores free semicolons", () => {
+      expect(parse([|
+        Token(Semicolon, 1),
+        Token(Word("color"), 1),
+        Token(Colon, 1),
+        Token(Word("papayawhip"), 1),
+        Token(Semicolon, 1),
         Token(Semicolon, 1)
       |]) == [|
         Property("color"),
@@ -290,6 +372,17 @@ describe("Parser", () => {
         Value("\"hello\""),
         Value("'world'")
       |]) |> toBe(true)
+    });
+
+    it("throws when unexpected tokens are encountered while parsing strings", () => {
+      expect(() => parse([|
+        Token(Word("color"), 1),
+        Token(Colon, 1),
+        Token(Quote(Double), 1),
+        Token(Str("hello"), 1),
+        Token(Quote(Single), 1),
+        Token(Semicolon, 1)
+      |])) |> toThrowMessage("Unexpected token while parsing string");
     });
 
     /* Parse: `content: "hello ${x} world";` */
@@ -444,6 +537,17 @@ describe("Parser", () => {
         Value("20px"),
         CompoundValueEnd
       |]) |> toBe(true)
+    });
+
+    it("throws when unexpected tokens are encountered", () => {
+      expect(() => parse([|
+        Token(Word("color"), 1),
+        Token(Colon, 1),
+        Token(Word("rgba"), 1),
+        Token(Paren(Opening), 1),
+        Token(Paren(Opening), 1),
+        Token(Semicolon, 1)
+      |])) |> toThrowMessage("Unexpected token while parsing values");
     });
   });
 });

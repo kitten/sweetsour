@@ -227,6 +227,22 @@ describe("Lexer", () => {
       |]) |> toBe(true);
     });
 
+    it("emits interpolations contained after the url() argument", () => {
+      let username = create_interpolation(1);
+      let lexerStream = lexer(Input.input([|"url(https://twitter.com/", ")"|], [| username |]));
+      let tokens = LazyStream.toArray(lexerStream);
+
+      expect(tokens == [|
+        Token(Word("url"), 1),
+        Token(Paren(Opening), 1),
+        Token(Quote(Double), 1),
+        Token(Str("https://twitter.com/"), 1),
+        Token(Interpolation(username), 1),
+        Token(Quote(Double), 1),
+        Token(Paren(Closing), 1)
+      |]) |> toBe(true);
+    });
+
     it("handles calc() argument", () => {
       expect(tokenise("calc( (50% - 10px) * 2 )") == [|
         Token(Word("calc"), 1),
