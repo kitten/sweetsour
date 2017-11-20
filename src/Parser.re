@@ -92,18 +92,6 @@ let parser = (s: Lexer.lexerStream) => {
     }
   };
 
-  /* recognises all tokens that are not valid as part of a selector;
-     must be updated when Lexer tokens are changed */
-  let isSelectorToken = (t: Lexer.tokenValue) => {
-    switch t {
-    | Brace(_)
-    | AtWord(_)
-    | Exclamation
-    | Semicolon => false
-    | _ => true
-    }
-  };
-
   /* parses a string starting after the first quote */
   let parseString = (kind: Lexer.quoteKind) : LinkedList.t(node) => {
     /* add a Value node to nodeBuffer if the string is not empty */
@@ -545,25 +533,20 @@ let parser = (s: Lexer.lexerStream) => {
       RuleEnd /* TODO: parse at-rule */
     }
 
-    /* increase ruleLevel and start SelectorLoop when opening curly brace is encountered */
-    | (Some(t), _) when isSelectorToken(t) => {
-      /* buffer first token for future selector parsing */
-      BufferStream.bufferOption(firstToken, buffer);
-
-      state.ruleLevel = state.ruleLevel + 1;
-      state.mode = SelectorLoop;
-      RuleStart(StyleRule) /* emit the starting node for the style rule */
-    }
-
     /* decrease ruleLevel when closing curly brace is encountered */
     | (Some(Brace(Closing)), _) when state.ruleLevel > 0 => {
       state.ruleLevel = state.ruleLevel - 1;
       RuleEnd
     }
 
-    /* all unrecognised tokens will be raised, with a hint as to what stage the parser's in */
+    /* fallback to selector parsing; increase ruleLevel and start SelectorLoop */
     | (Some(_), _) => {
-      raise(ParserError("Unexpected token; expected selector, declaration, or at-rule", state.line))
+      /* buffer first token for future selector parsing */
+      BufferStream.bufferOption(firstToken, buffer);
+
+      state.ruleLevel = state.ruleLevel + 1;
+      state.mode = SelectorLoop;
+      RuleStart(StyleRule) /* emit the starting node for the style rule */
     }
 
     /* EOF is only allowed when all rules have been closed with closing curly braces */
