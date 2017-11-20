@@ -80,13 +80,16 @@ let unshift = (value: 'a, queue: t('a)) => {
 };
 
 /* consumes `b` and appends its values onto `a` */
-let concat = (a: t('a), b: t('a)) => {
-  switch (a.tail, b.head) {
-  | (Some (tail), Some(head)) => {
-    tail.next = Some(head);
-    a
+let concat = (first: t('a), second: t('a)) => {
+  switch (first.tail, second.head, second.tail) {
+  | (Some (oldTail), Some(head), Some(newTail)) => {
+    oldTail.next = Some(head);
+    first.tail = Some(newTail);
+    first
   }
-  | (_, None) => a
-  | (None, _) => b
+
+  | (_, _, None) => first
+  | (_, None, _) => first
+  | (None, _, _) => second
   }
 };

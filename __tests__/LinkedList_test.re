@@ -104,5 +104,17 @@ describe("LinkedList", () => {
         None
       ]) |> toBe(true);
     });
+
+    it("adds b.head to a.tail and sets a.tail to b.tail", () => {
+      let a = create();
+      add("test 1", a);
+      add("test 2", a);
+      let b = create();
+      add("test 3", b);
+      add("test 4", b);
+      let con = concat(a, b);
+
+      expect(con.tail == b.tail) |> toBe(true);
+    });
   });
 });
