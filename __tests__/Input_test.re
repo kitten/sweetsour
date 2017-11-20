@@ -11,7 +11,7 @@ describe("Input", () => {
   open Expect;
 
   it("correctly iterates through chars in a string", () => {
-    expect(LazyStream.toArray(input([| "hello" |], [||])) == [|
+    expect(LazyStream.toArray(Input.input([| "hello" |], [||])) == [|
       Char('h'),
       Char('e'),
       Char('l'),
@@ -24,7 +24,7 @@ describe("Input", () => {
     let interpolationValueA = create_interpolation(1);
     let interpolationValueB = create_interpolation(1);
 
-    LazyStream.toArray(input([| "xz", "-", "12" |], [| interpolationValueA, interpolationValueB |]))
+    LazyStream.toArray(Input.input([| "xz", "-", "12" |], [| interpolationValueA, interpolationValueB |]))
       |> expect
       |> toEqual([|
         Char('x'),
@@ -38,7 +38,7 @@ describe("Input", () => {
   });
 
   it("throws when number of interpolations is invalid", () => {
-    expect(() => input([| "abc", "def" |], [||]))
+    expect(() => Input.input([| "abc", "def" |], [||]))
       |> toThrowMessage("Expected no of interpolations to equal no of strings - 1. The input is expected to be strings interleaved by the second interpolations array!");
   });
 });
