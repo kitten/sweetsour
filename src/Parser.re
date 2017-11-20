@@ -60,7 +60,7 @@ type parserStream = LazyStream.t(node);
 type parserMode =
   | MainLoop
   | PropertyLoop
-  | BufferLoop(LinkedList.t(node))
+  | BufferLoop
   | SelectorLoop;
 
 /* Running state for parsing */
@@ -69,6 +69,8 @@ type state = {
   mutable line: int,
   /* value to keep track of the current rule nesting */
   mutable ruleLevel: int,
+  /* buffer to hold nodes for the BufferLoop */
+  mutable nodeBuffer: LinkedList.t(node),
   /* the current mode of the parser */
   mutable mode: parserMode
 };
@@ -80,6 +82,7 @@ let parser = (s: Lexer.lexerStream) => {
   let state = {
     line: 1,
     ruleLevel: 0,
+    nodeBuffer: LinkedList.create(),
     mode: MainLoop
   };
 
@@ -485,7 +488,8 @@ let parser = (s: Lexer.lexerStream) => {
     };
 
     /* preparse values and start the buffer loop to consume & emit them */
-    state.mode = BufferLoop(parseValues());
+    state.nodeBuffer = parseValues();
+    state.mode = BufferLoop;
 
     node
   };
@@ -586,9 +590,9 @@ let parser = (s: Lexer.lexerStream) => {
   }
 
   /* emits nodes from a preparsed buffer */
-  and bufferLoop = (nodes: LinkedList.t(node)) : node => {
+  and bufferLoop = () : node => {
     /* remove a node from the buffered list */
-    switch (LinkedList.take(nodes)) {
+    switch (LinkedList.take(state.nodeBuffer)) {
       /* when the end of the buffered nodes is reached, return to the main loop */
       | None => {
         state.mode = MainLoop;
@@ -601,9 +605,9 @@ let parser = (s: Lexer.lexerStream) => {
   };
 
   let selectorLoop = () : node => {
-    let nodes = parseSelectors();
-    state.mode = BufferLoop(nodes);
-    bufferLoop(nodes)
+    state.nodeBuffer = parseSelectors();
+    state.mode = BufferLoop;
+    bufferLoop()
   };
 
   let next: [@bs] (unit => option(node)) = [@bs] (() => {
@@ -611,7 +615,7 @@ let parser = (s: Lexer.lexerStream) => {
       switch state.mode {
       | MainLoop => mainLoop()
       | PropertyLoop => propertyLoop()
-      | BufferLoop(nodes) => bufferLoop(nodes)
+      | BufferLoop => bufferLoop()
       | SelectorLoop => selectorLoop()
       };
 
