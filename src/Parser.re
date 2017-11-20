@@ -229,8 +229,12 @@ let parser = (s: Lexer.lexerStream) => {
       | Some(Colon)
       | Some(Comma)
       | Some(Paren(Closing))
-      | Some(Brace(Opening))
-      | Some(WordCombinator) => 0
+      | Some(Brace(Opening)) => 0
+
+      | Some(WordCombinator) => {
+        BufferStream.junk(buffer);
+        0
+      }
 
       /* all other tokens require a space combinator, e.g. interpolation, word... */
       | _ => {
@@ -241,7 +245,7 @@ let parser = (s: Lexer.lexerStream) => {
     };
 
     /* recursively parse all selectors by dividing the stream into functions, compounds, and lastly selectors */
-    let rec parseSelectorLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) => {
+    let rec parseSelectorLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) : LinkedList.t(node) => {
       /* NOTE: This uses BufferStream.peek instead of BufferStream.next, as the final token cannot be put back since the MainLoop uses the LazyStream */
       switch (getTokenValue(BufferStream.peek(buffer))) {
       /* parse a pseudo selector or selector function */
