@@ -315,6 +315,50 @@ describe("Parser", () => {
       |]) |> toBe(true)
     });
 
+    /* Parse: `width: calc(2 * (50% - 20px));` */
+    it("parses unquoted calc() argument", () => {
+      expect(parse([|
+        Token(Word("width"), 1),
+        Token(Colon, 1),
+        Token(Word("calc"), 1),
+        Token(Paren(Opening), 1),
+        Token(Str("2 * (50% - 20px)"), 1),
+        Token(Paren(Closing), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("width"),
+        FunctionStart("calc"),
+        Value("2 * (50% - 20px)"),
+        FunctionEnd
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `width: calc(2 * (50% - ${x}));` */
+    it("parses unquoted calc() argument containing interpolations", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Word("width"), 1),
+        Token(Colon, 1),
+        Token(Word("calc"), 1),
+        Token(Paren(Opening), 1),
+        Token(Str("2 * (50% - "), 1),
+        Token(Interpolation(inter), 1),
+        Token(Str(")"), 1),
+        Token(Paren(Closing), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("width"),
+        FunctionStart("calc"),
+        CompoundValueStart,
+        Value("2 * (50% - "),
+        ValueRef(inter),
+        Value(")"),
+        CompoundValueEnd,
+        FunctionEnd
+      |]) |> toBe(true)
+    });
+
     /* Parse: `background-image: url(http://test.com);` */
     it("parses unquoted url() argument", () => {
       expect(parse([|
@@ -322,13 +366,65 @@ describe("Parser", () => {
         Token(Colon, 1),
         Token(Word("url"), 1),
         Token(Paren(Opening), 1),
+        Token(Quote(Double), 1),
         Token(Str("http://test.com"), 1),
+        Token(Quote(Double), 1),
         Token(Paren(Closing), 1),
         Token(Semicolon, 1)
       |]) == [|
         Property("background-image"),
         FunctionStart("url"),
-        Value("http://test.com"),
+        Value("\"http://test.com\""),
+        FunctionEnd
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `background-image: url(http://test.com/${x});` */
+    it("parses unquoted url() argument containing interpolations", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Word("background-image"), 1),
+        Token(Colon, 1),
+        Token(Word("url"), 1),
+        Token(Paren(Opening), 1),
+        Token(Quote(Double), 1),
+        Token(Str("http://test.com/"), 1),
+        Token(Interpolation(inter), 1),
+        Token(Quote(Double), 1),
+        Token(Paren(Closing), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("background-image"),
+        FunctionStart("url"),
+        StringStart("\""),
+        Value("http://test.com/"),
+        ValueRef(inter),
+        StringEnd,
+        FunctionEnd
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `background-image: url(${x});` */
+    it("parses unquoted url() argument containing interpolations", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Word("background-image"), 1),
+        Token(Colon, 1),
+        Token(Word("url"), 1),
+        Token(Paren(Opening), 1),
+        Token(Quote(Double), 1),
+        Token(Interpolation(inter), 1),
+        Token(Quote(Double), 1),
+        Token(Paren(Closing), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("background-image"),
+        FunctionStart("url"),
+        StringStart("\""),
+        ValueRef(inter),
+        StringEnd,
         FunctionEnd
       |]) |> toBe(true)
     });

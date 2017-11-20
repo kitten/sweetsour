@@ -57,7 +57,9 @@ type lexerMode =
   | StringEndLoop
   | SingleQuoteStringLoop
   | DoubleQuoteStringLoop
+  | UnquotedStringArgStartLoop
   | UnquotedStringArgLoop
+  | UnquotedStringArgEndLoop
   | UnquotedContentArgLoop;
 
 /* Running state for tokenisation */
@@ -229,6 +231,18 @@ let lexer = (s: Input.inputStream) => {
     }
   };
 
+  /* adds a double quote to the beginning of an unquoted url() argument */
+  let unquotedStringArgStartLoop = () : tokenValue => {
+    state.mode = UnquotedStringArgLoop;
+    Quote(Double)
+  };
+
+  /* adds a double quote to the end of an unquoted url() argument */
+  let unquotedStringArgEndLoop = () : tokenValue => {
+    state.mode = MainLoop;
+    Quote(Double)
+  };
+
   /* tokenise unquoted arguments like the content of url() or calc() */
   let rec unquotedArgumentLoop = (kind: argumentMode, nestedness: int, str: string) : tokenValue => {
     switch (LazyStream.peek(s), kind, nestedness) {
@@ -238,8 +252,18 @@ let lexer = (s: Input.inputStream) => {
       unquotedArgumentLoop(kind, nestedness, str ++ captureEscapedContent())
     }
 
-    /* exit UnquotedArgumentLoop when closing parenthesis is found and nestedness is 0 */
-    | (Some(Char(')')), _, 0) => {
+    /* for url(), exit UnquotedArgumentLoop when closing parenthesis is found and enter UnquotedStringArgEndLoop */
+    | (Some(Char(')')), StringArg, 0) => {
+      if (str !== "") {
+        state.mode = UnquotedStringArgEndLoop;
+        Str(str)
+      } else {
+        unquotedStringArgEndLoop()
+      }
+    }
+
+    /* for calc(), exit UnquotedArgumentLoop when closing parenthesis is found and nestedness is 0 */
+    | (Some(Char(')')), ContentArg, 0) => {
       state.mode = MainLoop;
       Str(str)
     }
@@ -268,9 +292,13 @@ let lexer = (s: Input.inputStream) => {
       skipWhitespaces();
 
       switch (LazyStream.peek(s)) {
-      | Some(Char(')')) =>
-        state.mode = MainLoop;
+      | Some(Char(')')) when str !== "" => {
+        state.mode = UnquotedStringArgEndLoop;
         Str(str)
+      }
+
+      | Some(Char(')')) when str === "" => unquotedStringArgEndLoop()
+
       | _ => raise(LexerError("Unexpected whitespace, expected closing parenthesis", state.line))
       }
     }
@@ -279,6 +307,12 @@ let lexer = (s: Input.inputStream) => {
     | (Some(Char('\n')), ContentArg, _) => {
       state.line = state.line + 1;
       unquotedArgumentLoop(kind, nestedness, str ++ "\n")
+    }
+
+    /* in url() quotes must be escaped, since extra quotes will be added */
+    | (Some(Char('"')), StringArg, _) => {
+      LazyStream.junk(s); /* throw away char */
+      unquotedArgumentLoop(kind, nestedness, str ++ "\\\"")
     }
 
     /* every char is accepted into the unquoted argument */
@@ -382,7 +416,7 @@ let lexer = (s: Input.inputStream) => {
 
       ignore(
         switch state.lastTokenValue {
-        | Word("url") => state.mode = UnquotedStringArgLoop
+        | Word("url") => state.mode = UnquotedStringArgStartLoop
         | Word("calc") => state.mode = UnquotedContentArgLoop
         | _ => ()
         }
@@ -508,7 +542,9 @@ let lexer = (s: Input.inputStream) => {
       | SingleQuoteStringLoop => stringLoop(Single, "")
       | DoubleQuoteStringLoop => stringLoop(Double, "")
       | StringEndLoop => stringEndLoop()
+      | UnquotedStringArgStartLoop => unquotedStringArgStartLoop()
       | UnquotedStringArgLoop => unquotedArgumentLoop(StringArg, 0, "")
+      | UnquotedStringArgEndLoop => unquotedStringArgEndLoop()
       | UnquotedContentArgLoop => unquotedArgumentLoop(ContentArg, 0, "")
       };
 

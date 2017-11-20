@@ -182,10 +182,22 @@ describe("Lexer", () => {
     open Expect;
 
     it("handles url() argument", () => {
-      expect(tokenise("url(  https://github.com  )") == [|
+      expect(tokenise("url(  https://github.com/?v=\"  )") == [|
         Token(Word("url"), 1),
         Token(Paren(Opening), 1),
-        Token(Str("https://github.com"), 1),
+        Token(Quote(Double), 1),
+        Token(Str("https://github.com/?v=\\\""), 1),
+        Token(Quote(Double), 1),
+        Token(Paren(Closing), 1)
+      |]) |> toBe(true);
+    });
+
+    it("handles empty url() argument", () => {
+      expect(tokenise("url(  )") == [|
+        Token(Word("url"), 1),
+        Token(Paren(Opening), 1),
+        Token(Quote(Double), 1),
+        Token(Quote(Double), 1),
         Token(Paren(Closing), 1)
       |]) |> toBe(true);
     });
@@ -206,9 +218,11 @@ describe("Lexer", () => {
       expect(tokens == [|
         Token(Word("url"), 1),
         Token(Paren(Opening), 1),
+        Token(Quote(Double), 1),
         Token(Str("https://twitter.com/"), 1),
         Token(Interpolation(username), 1),
         Token(Str("/"), 1),
+        Token(Quote(Double), 1),
         Token(Paren(Closing), 1)
       |]) |> toBe(true);
     });
