@@ -29,6 +29,7 @@ type node =
   | RuleName(string)
   | Selector(string)
   | ParentSelector
+  | UniversalSelector
   | CompoundSelectorStart
   | CompoundSelectorEnd
   | SpaceCombinator
@@ -288,6 +289,17 @@ let parser = (s: Lexer.lexerStream) => {
         /* all other tokens here raise an error, since a pseudo selector must be finished */
         | _ => raise(ParserError("Unexpected token while parsing pseudo selector", state.line))
         }
+      }
+
+      /* emit a universal selector and add a combinator */
+      | Some(Asterisk) => {
+        BufferStream.junk(buffer);
+        LinkedList.add(UniversalSelector, nodeBuffer);
+
+        /* parse possible combinators */
+        let combinatorSize = parseCombinator(nodeBuffer);
+        /* parse a combinator and continue parsing nodes on this level */
+        parseSelectorLevel(nodeBuffer, length + combinatorSize + 1, level)
       }
 
       /* emit a parent selector and add a combinator */

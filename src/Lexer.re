@@ -368,7 +368,6 @@ let lexer = (s: Input.inputStream) => {
     | Some(Char(';')) => Semicolon
     | Some(Char('+')) => Plus
     | Some(Char('>')) => Arrow
-    | Some(Char('*')) => Asterisk
     | Some(Char('~')) => Tilde
     | Some(Char(',')) => Comma
     | Some(Char('|')) => Pipe
@@ -420,6 +419,13 @@ let lexer = (s: Input.inputStream) => {
       /* at-words will never be composed with interpolations, so no switch to WordLoop */
       let wordContent = captureWordContent("@");
       AtWord(wordContent)
+    }
+
+    /* detect asterisk token and enter combinator loop */
+    | Some(Char('*')) => {
+      /* switch to combinator to emit a WordCombinator when no space occurs between interpolations/words */
+      state.mode = CombinatorLoop;
+      Asterisk
     }
 
     /* detect ampersand token and enter combinator loop */
@@ -483,6 +489,7 @@ let lexer = (s: Input.inputStream) => {
     /* emit WordCombinator when next token will be an interpolation or ampersand */
     | Some(Interpolation(_))
     | Some(Char('&')) => WordCombinator
+    | Some(Char('*')) => WordCombinator
 
     /* emit WordCombinator when next token will be a word */
     | Some(Char(c)) when isWordStartChar(c) => WordCombinator
