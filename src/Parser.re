@@ -226,7 +226,8 @@ let parser = (s: Lexer.lexerStream) => {
       | Some(Colon)
       | Some(Comma)
       | Some(Paren(Closing))
-      | Some(Brace(Opening)) => 0
+      | Some(Brace(Opening))
+      | Some(WordCombinator) => 0
 
       /* all other tokens require a space combinator, e.g. interpolation, word... */
       | _ => {
