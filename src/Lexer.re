@@ -367,7 +367,6 @@ let lexer = (s: Input.inputStream) => {
     | Some(Char(':')) => Colon
     | Some(Char(';')) => Semicolon
     | Some(Char('+')) => Plus
-    | Some(Char('&')) => Ampersand
     | Some(Char('>')) => Arrow
     | Some(Char('*')) => Asterisk
     | Some(Char('~')) => Tilde
@@ -423,6 +422,13 @@ let lexer = (s: Input.inputStream) => {
       AtWord(wordContent)
     }
 
+    /* detect ampersand token and enter combinator loop */
+    | Some(Char('&')) => {
+      /* switch to combinator to emit a WordCombinator when no space occurs between interpolations/words */
+      state.mode = CombinatorLoop;
+      Ampersand
+    }
+
     /* detect start of a word and parse it */
     | Some(Char(c)) when isWordStartChar(c) => {
       /* switch to combinator to emit a WordCombinator when no space occurs between interpolations/words */
@@ -474,8 +480,11 @@ let lexer = (s: Input.inputStream) => {
     state.mode = MainLoop;
 
     switch (LazyStream.peek(s)) {
-    /* emit WordCombinator when next token will be an interpolation or word again */
-    | Some(Interpolation(_)) => WordCombinator
+    /* emit WordCombinator when next token will be an interpolation or ampersand */
+    | Some(Interpolation(_))
+    | Some(Char('&')) => WordCombinator
+
+    /* emit WordCombinator when next token will be a word */
     | Some(Char(c)) when isWordStartChar(c) => WordCombinator
 
     /* pass over to MainLoop immediately if no word or interpolation followed */
