@@ -527,8 +527,6 @@ let parser = (s: Lexer.lexerStream) => {
       propertyLoop()
     }
 
-    /* TODO: bail if tokens are not selector/declaration tokens to prevent unnecessary buffering */
-
     /* buffer any other token while skipping it in the LazyStream */
     | Some(_) => {
       BufferStream.bufferOption(token, buffer);

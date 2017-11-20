@@ -15,9 +15,7 @@ let parse = (tokens: array(Lexer.token)): array(node) => {
       i := i^ + 1;
       token
     } else {
-      None
-    }
-  });
+      None } });
 
   LazyStream.toArray(parser(tokenStream))
 };
@@ -209,6 +207,147 @@ describe("Parser", () => {
         FunctionEnd,
         RuleEnd
       |]) |> toBe(true);
+    });
+  });
+
+  describe("Declarations", () => {
+    open Expect;
+
+    /* Parse: `color: papayawhip;` */
+    it("parses declarations containing only plain words", () => {
+      expect(parse([|
+        Token(Word("color"), 1),
+        Token(Colon, 1),
+        Token(Word("papayawhip"), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("color"),
+        Value("papayawhip"),
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `${x}: papayawhip;` */
+    it("parses declarations having an interpolation as a property", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Interpolation(inter), 1),
+        Token(Colon, 1),
+        Token(Word("papayawhip"), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        PropertyRef(inter),
+        Value("papayawhip")
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `color: ${x};` */
+    it("parses declarations having an interpolation as a value", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Word("color"), 1),
+        Token(Colon, 1),
+        Token(Interpolation(inter), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("color"),
+        ValueRef(inter)
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `color: papayawhip, palevioletred;` */
+    it("parses comma separated values", () => {
+      expect(parse([|
+        Token(Word("color"), 1),
+        Token(Colon, 1),
+        Token(Word("papayawhip"), 1),
+        Token(Comma, 1),
+        Token(Word("palevioletred"), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("color"),
+        Value("papayawhip"),
+        Value("palevioletred")
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `content: "hello", 'world';` */
+    it("parses strings as values", () => {
+      expect(parse([|
+        Token(Word("color"), 1),
+        Token(Colon, 1),
+        Token(Quote(Double), 1),
+        Token(Str("hello"), 1),
+        Token(Quote(Double), 1),
+        Token(Comma, 1),
+        Token(Quote(Single), 1),
+        Token(Str("world"), 1),
+        Token(Quote(Single), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("color"),
+        Value("\"hello\""),
+        Value("'world'")
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `content: "hello ${x} world";` */
+    it("parses strings interleaved with values", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Word("color"), 1),
+        Token(Colon, 1),
+        Token(Quote(Double), 1),
+        Token(Str("hello "), 1),
+        Token(Interpolation(inter), 1),
+        Token(Str(" world"), 1),
+        Token(Quote(Double), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("color"),
+        StringStart("\""),
+        Value("hello "),
+        ValueRef(inter),
+        Value(" world"),
+        StringEnd
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `background-image: url(http://test.com);` */
+    it("parses unquoted url() argument", () => {
+      expect(parse([|
+        Token(Word("background-image"), 1),
+        Token(Colon, 1),
+        Token(Word("url"), 1),
+        Token(Paren(Opening), 1),
+        Token(Str("http://test.com"), 1),
+        Token(Paren(Closing), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("background-image"),
+        FunctionStart("url"),
+        Value("http://test.com"),
+        FunctionEnd
+      |]) |> toBe(true)
+    });
+
+    /* Parse: `padding: 10px 20px;` */
+    it("parses compound values", () => {
+      expect(parse([|
+        Token(Word("padding"), 1),
+        Token(Colon, 1),
+        Token(Word("10px"), 1),
+        Token(Word("20px"), 1),
+        Token(Semicolon, 1)
+      |]) == [|
+        Property("padding"),
+        CompoundValueStart,
+        Value("10px"),
+        Value("20px"),
+        CompoundValueEnd
+      |]) |> toBe(true)
     });
   });
 });
