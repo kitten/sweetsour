@@ -255,6 +255,7 @@ let parser = (s: Lexer.lexerStream) => {
         /* check token after colon; this is expected to be a word or an interpolation */
         switch (getTokenValue(BufferStream.next(buffer)), getTokenValue(BufferStream.peek(buffer))) {
         /* if a function is detected parse it and continue on this level afterwards */
+        | (Some(Word(word)), Some(Paren(OpeningSeparated)))
         | (Some(Word(word)), Some(Paren(Opening))) => {
           BufferStream.junk(buffer);
 
@@ -398,6 +399,7 @@ let parser = (s: Lexer.lexerStream) => {
 
         /* detect opening parentheses to start to parse functions */
         switch (getTokenValue(BufferStream.peek(buffer))) {
+        | Some(Paren(OpeningSeparated))
         | Some(Paren(Opening)) => {
           BufferStream.junk(buffer);
 

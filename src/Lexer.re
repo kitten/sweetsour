@@ -8,6 +8,12 @@ type pairwiseKind =
   | Opening
   | Closing;
 
+/* For tokens that additionally need whitespace significance encoded */
+type combinatedPairwiseKind =
+  | Opening
+  | Closing
+  | OpeningSeparated;
+
 /* For Quote tokens and the string loop to identify the closing quote */
 type quoteKind =
   | Double
@@ -16,9 +22,9 @@ type quoteKind =
 /* A token's value represented by its type constructor and the value type */
 type tokenValue =
   | Interpolation(interpolation)
-  | Paren(pairwiseKind)
+  | Paren(combinatedPairwiseKind)
+  | Bracket(combinatedPairwiseKind)
   | Brace(pairwiseKind)
-  | Bracket(pairwiseKind)
   | Word(string)
   | AtWord(string)
   | Str(string)
@@ -394,8 +400,6 @@ let lexer = (s: Input.inputStream) => {
     /* single char tokens */
     | Some(Char('{')) => Brace(Opening)
     | Some(Char('}')) => Brace(Closing)
-    | Some(Char('[')) => Bracket(Opening)
-    | Some(Char(']')) => Bracket(Closing)
     | Some(Char('!')) => Exclamation
     | Some(Char('=')) => Equal
     | Some(Char(':')) => Colon
@@ -407,22 +411,40 @@ let lexer = (s: Input.inputStream) => {
     | Some(Char('|')) => Pipe
     | Some(Char('$')) => Dollar
 
+    /* single char token; closing bracket, see below for opening */
+    | Some(Char(']')) => Bracket(Closing)
+
+    /* emit (non-/)separated bracket */
+    | Some(Char('[')) => {
+      switch (state.lastTokenValue) {
+      | Word(_)
+      | Interpolation(_) => Bracket(Opening)
+      | _ => Bracket(OpeningSeparated)
+      }
+    }
+
     /* single char token; closing parenthesis, see below for opening */
     | Some(Char(')')) => Paren(Closing)
 
-    /* detect whether parenthesis is part of url() or calc() */
+    /* detect whether parenthesis is part of url() or calc(), and emit (non-/)separated parenthesis */
     | Some(Char('(')) => {
       skipWhitespaces(); /* skip all leading whitespaces */
 
-      ignore(
-        switch state.lastTokenValue {
-        | Word("url") => state.mode = UnquotedStringArgStartLoop
-        | Word("calc") => state.mode = UnquotedContentArgLoop
-        | _ => ()
-        }
-      );
+      switch state.lastTokenValue {
+      | Word("url") => {
+        state.mode = UnquotedStringArgStartLoop;
+        Paren(Opening)
+      }
+      | Word("calc") => {
+        state.mode = UnquotedContentArgLoop;
+        Paren(Opening)
+      }
 
-      Paren(Opening)
+      | Word(_)
+      | Interpolation(_) => Paren(Opening)
+
+      | _ => Paren(OpeningSeparated)
+      }
     }
 
     /* skip over carriage returns, tabs, and whitespaces */

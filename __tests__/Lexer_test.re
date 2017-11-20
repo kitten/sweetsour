@@ -20,9 +20,9 @@ describe("Lexer", () => {
       expect(tokenise("{}[]()!=:;+&>*~,|$") == [|
         Token(Brace(Opening), 1),
         Token(Brace(Closing), 1),
-        Token(Bracket(Opening), 1),
+        Token(Bracket(OpeningSeparated), 1),
         Token(Bracket(Closing), 1),
-        Token(Paren(Opening), 1),
+        Token(Paren(OpeningSeparated), 1),
         Token(Paren(Closing), 1),
         Token(Exclamation, 1),
         Token(Equal, 1),

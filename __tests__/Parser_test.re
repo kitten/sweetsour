@@ -157,13 +157,14 @@ describe("Parser", () => {
       |]) |> toBe(true)
     });
 
-    /* Parse: `.test:not(.first, .second) {}` */
+    /* Parse: `.test:not (.first, .second) {}`
+       NOTE: The whitespace in front of the parenthesis should not be significant */
     it("parses pseudo selector functions", () => {
       expect(parse([|
         Token(Word(".test"), 1),
         Token(Colon, 1),
         Token(Word("not"), 1),
-        Token(Paren(Opening), 1),
+        Token(Paren(OpeningSeparated), 1),
         Token(Word(".first"), 1),
         Token(Paren(Closing), 1),
         Token(Brace(Opening), 1),
