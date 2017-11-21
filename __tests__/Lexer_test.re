@@ -49,7 +49,7 @@ describe("Lexer", () => {
     });
 
     it("throws when unexpected tokens are encountered", () => {
-      expect(() => tokenise("^")) |> toThrowMessage("Unexpected token encountered: ^");
+      expect(() => tokenise("^")) |> toThrowMessage("unexpected '^' while parsing tokens");
     });
   });
 
@@ -162,11 +162,11 @@ describe("Lexer", () => {
     });
 
     it("throws when no end of string is reached", () => {
-      expect(() => tokenise("'")) |> toThrowMessage("Unexpected EOF before end of string");
+      expect(() => tokenise("'")) |> toThrowMessage("unexpected eof while parsing string");
     });
 
     it("throws when unescaped newline in string are found", () => {
-      expect(() => tokenise("'\n")) |> toThrowMessage("Expected newline inside string to be escaped");
+      expect(() => tokenise("'\n")) |> toThrowMessage("unexpected newline while parsing string");
     });
 
     it("accepts escaped content inside strings", () => {
@@ -203,11 +203,11 @@ describe("Lexer", () => {
     });
 
     it("throws when unescaped parentheses in url() argument are found", () => {
-      expect(() => tokenise("url(())")) |> toThrowMessage("Unexpected opening parenthesis inside an unquoted argument");
+      expect(() => tokenise("url(())")) |> toThrowMessage("unexpected '(' while parsing unquoted argument");
     });
 
     it("throws when whitespaces in url() argument are found", () => {
-      expect(() => tokenise("url(https://  github.com)")) |> toThrowMessage("Unexpected whitespace, expected closing parenthesis");
+      expect(() => tokenise("url(https://  github.com)")) |> toThrowMessage("nexpected whitespace while parsing unquoted argument; expected: ')'");
     });
 
     it("emits interpolations interleaved with url() argument", () => {
@@ -253,7 +253,7 @@ describe("Lexer", () => {
     });
 
     it("throws when no end of argument is reached", () => {
-      expect(() => tokenise("url(https://")) |> toThrowMessage("Unexpected EOF before end of unquoted argument");
+      expect(() => tokenise("url(https://")) |> toThrowMessage("unexpected eof while parsing unquoted argument; expected: ')'");
     });
   });
 

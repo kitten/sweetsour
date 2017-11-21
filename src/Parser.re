@@ -143,7 +143,7 @@ let parser = (s: Lexer.lexerStream) => {
       | Some(Str(rest)) => parse(str ++ rest, containsInterpolation)
 
       /* all other tokens are invalid inside a string */
-      | _ => raise(ParserError("Unexpected token while parsing string", state.line))
+      | _ => raise(ParserError(unexpected_msg("token", "string"), state.line))
       }
     };
 
@@ -178,10 +178,7 @@ let parser = (s: Lexer.lexerStream) => {
       | Some(Comma)
       | Some(Paren(Closing))
       | Some(Brace(Opening)) => {
-        raise(ParserError(
-          "Unexpected combinator; expected no combinator before commas, parentheses, colons, and braces while parsing selectors",
-          state.line
-        ));
+        raise(ParserError(unexpected_msg("combinator", "selectors"), state.line));
       }
 
       /* all other tokens are allowed e.g. interpolation, word... */
@@ -296,7 +293,7 @@ let parser = (s: Lexer.lexerStream) => {
         }
 
         /* all other tokens here raise an error, since a pseudo selector must be finished */
-        | _ => raise(ParserError("Unexpected token while parsing pseudo selector", state.line))
+        | _ => raise(ParserError(unexpected_msg("token", "pseudo selector"), state.line))
         }
       }
 
@@ -466,7 +463,7 @@ let parser = (s: Lexer.lexerStream) => {
       }
 
       /* EOF or any other tokens are invalid here */
-      | _ => raise(ParserError("Unexpected token while parsing values", state.line))
+      | _ => raise(ParserError(unexpected_msg("token", "values"), state.line))
       }
     };
 
@@ -479,18 +476,13 @@ let parser = (s: Lexer.lexerStream) => {
       switch (getTokenValue(BufferStream.next(buffer))) {
       | Some(Word(str)) => Property(str)
       | Some(Interpolation(x)) => PropertyRef(x)
-      | _ => {
-        raise(ParserError(
-          "Unexpected token while parsing a property, expected a Word or Interpolation",
-          state.line
-        ))
-      }
+      | _ => raise(ParserError(unexpected_msg("token", "property"), state.line));
       };
 
     /* enforce a colon token after a property */
     switch (getTokenValue(BufferStream.next(buffer))) {
     | Some(Colon) => ()
-    | _ => raise(ParserError("Unexpected token after parsing a property, expected a Colon", state.line))
+    | _ => raise(ParserError(unexpected_msg("token", "property") ++ expected_msg("colon"), state.line))
     };
 
     /* preparse values and start the buffer loop to consume & emit them */
@@ -537,7 +529,7 @@ let parser = (s: Lexer.lexerStream) => {
     }
 
     /* raise EOF when the parser is in a partial decl/selector state */
-    | None => raise(ParserError("Unexpected EOF, expected selector or declaration", state.line))
+    | None => raise(ParserError(unexpected_msg("eof", "rules") ++ expected_msg("selector, declaration"), state.line))
     }
   };
 
@@ -585,7 +577,7 @@ let parser = (s: Lexer.lexerStream) => {
 
     /* EOF is only allowed when all rules have been closed with closing curly braces */
     | (None, _) when state.ruleLevel > 0 => {
-      raise(ParserError("Unexpected EOF, expected all rules to be closed", state.line))
+      raise(ParserError(unexpected_msg("eof", "") ++ expected_msg("all rules to be closed"), state.line));
     }
 
     /* EOF will be emitted when the ruleLevel === 0 */

@@ -215,7 +215,7 @@ describe("Parser", () => {
         Token(Colon, 1),
         Token(Brace(Opening), 1),
         Token(Brace(Closing), 2)
-      |])) |> toThrowMessage("Unexpected token while parsing pseudo selector");
+      |])) |> toThrowMessage("unexpected token while parsing pseudo selector");
     });
 
     /* Parse: `& > div {}` */
@@ -274,7 +274,7 @@ describe("Parser", () => {
         Token(Arrow, 1),
         Token(Brace(Opening), 1),
         Token(Brace(Closing), 2)
-      |])) |> toThrowMessage("Unexpected combinator; expected no combinator before commas, parentheses, colons, and braces while parsing selectors");
+      |])) |> toThrowMessage("unexpected combinator while parsing selectors");
     });
   });
 
@@ -383,7 +383,7 @@ describe("Parser", () => {
         Token(Str("hello"), 1),
         Token(Quote(Single), 1),
         Token(Semicolon, 1)
-      |])) |> toThrowMessage("Unexpected token while parsing string");
+      |])) |> toThrowMessage("unexpected token while parsing string");
     });
 
     /* Parse: `content: "hello ${x} world";` */
@@ -548,7 +548,7 @@ describe("Parser", () => {
         Token(Paren(Opening), 1),
         Token(Paren(Opening), 1),
         Token(Semicolon, 1)
-      |])) |> toThrowMessage("Unexpected token while parsing values");
+      |])) |> toThrowMessage("unexpected token while parsing values");
     });
   });
 });

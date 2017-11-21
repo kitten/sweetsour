@@ -132,7 +132,7 @@ let lexer = (s: Input.inputStream) => {
     | Some(_) => skipCommentContent()
 
     /* a comment should be closed, since we don't want to deal with input weirdness */
-    | None => raise(LexerError("Unexpected EOF, expected end of comment", state.line))
+    | None => raise(LexerError(unexpected_msg("eof", "comment") ++ expected_msg("comment to be closed"), state.line))
     }
   };
   /* skip all whitespace-like characters */
@@ -196,14 +196,11 @@ let lexer = (s: Input.inputStream) => {
 
       /* it's too risky to allow value-interpolations as part of escapes */
       | Some(Interpolation(_)) => {
-        raise(LexerError(
-          "Unexpected interpolation after backslash, expected escaped content",
-          state.line
-        ))
+        raise(LexerError(unexpected_msg("interpolation", "escape sequence"), state.line));
       }
 
       /* an escape (backslash) must be followed by at least another char, thus an EOF is unacceptable */
-      | None => raise(LexerError("Unexpected EOF after backslash, expected escaped content", state.line))
+      | None => raise(LexerError(unexpected_msg("eof", "escape sequence"), state.line))
       };
 
     "\\" ++ escaped
@@ -282,7 +279,7 @@ let lexer = (s: Input.inputStream) => {
 
     /* nested arguments (parentheses) inside StrictString arguments are not allowed */
     | (Some(Char('(')), StringArg, _) => {
-      raise(LexerError("Unexpected opening parenthesis inside an unquoted argument", state.line))
+      raise(LexerError(unexpected_msg("'('", "unquoted argument"), state.line));
     }
 
     | (Some(Char('(')), ContentArg, _) => {
@@ -305,7 +302,7 @@ let lexer = (s: Input.inputStream) => {
 
       | Some(Char(')')) when str === "" => unquotedStringArgEndLoop()
 
-      | _ => raise(LexerError("Unexpected whitespace, expected closing parenthesis", state.line))
+      | _ => raise(LexerError(unexpected_msg("whitespace", "unquoted argument") ++ expected_msg("')'"), state.line))
       }
     }
 
@@ -337,7 +334,7 @@ let lexer = (s: Input.inputStream) => {
     }
 
     /* an unquoted argument must be explicitly ended, thus an EOF is unacceptable */
-    | (None, _, _) => raise(LexerError("Unexpected EOF before end of unquoted argument", state.line))
+    | (None, _, _) => raise(LexerError(unexpected_msg("eof", "unquoted argument") ++ expected_msg("')'"), state.line))
     }
   };
 
@@ -362,7 +359,7 @@ let lexer = (s: Input.inputStream) => {
     }
 
     /* newlines inside strings are not permitted, except when they're escaped */
-    | Some(Char('\n')) => raise(LexerError("Expected newline inside string to be escaped", state.line))
+    | Some(Char('\n')) => raise(LexerError(unexpected_msg("newline", "string"), state.line))
 
     /* every char is accepted into the string */
     | Some(Char(c)) => {
@@ -380,7 +377,7 @@ let lexer = (s: Input.inputStream) => {
     }
 
     /* a string must be explicitly ended, thus an EOF is unacceptable */
-    | None => raise(LexerError("Unexpected EOF before end of string", state.line))
+    | None => raise(LexerError(unexpected_msg("eof", "string"), state.line))
     }
   };
 
@@ -391,7 +388,7 @@ let lexer = (s: Input.inputStream) => {
     switch (LazyStream.next(s)) {
     | Some(Char('"')) => Quote(Double)
     | Some(Char('\'')) => Quote(Single)
-    | _ => raise(LexerError("Expected quote at the end of the last string", state.line))
+    | _ => raise(LexerError(unexpected_msg("token", "string") ++ expected_msg("end of string"), state.line))
     }
   };
 
@@ -529,8 +526,7 @@ let lexer = (s: Input.inputStream) => {
 
     /* all unrecognised characters will be raised outside of designated matching loops */
     | Some(Char(c)) => {
-      let msg = "Unexpected token encountered: " ++ string_of_char(c);
-      raise(LexerError(msg, state.line))
+      raise(LexerError(unexpected_msg("'" ++ string_of_char(c) ++ "'", "tokens"), state.line));
     }
 
     | None => EOF
