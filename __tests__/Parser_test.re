@@ -15,7 +15,9 @@ let parse = (tokens: array(Lexer.token)): array(node) => {
       i := i^ + 1;
       token
     } else {
-      None } });
+      None
+    }
+  });
 
   LazyStream.toArray(parser(tokenStream))
 };

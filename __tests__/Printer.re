@@ -26,7 +26,7 @@ let printer = (s: Parser.parserStream) => {
   };
 
   let stringifyNode = (node: Parser.node) : string => {
-    let indent = String.make(indentation^ * 2, ' ');
+    let indentImmediate = ref(indentation^);
     let nodeOutput = switch (node) {
     | RuleStart(kind) => {
       indentation := indentation^ + 1;
@@ -34,6 +34,7 @@ let printer = (s: Parser.parserStream) => {
     }
     | RuleEnd => {
       indentation := indentation^ - 1;
+      indentImmediate := indentImmediate^ - 1;
       "[RULE_END]"
     }
     | RuleName(str) => "[RULE_NAME, '" ++ str ++ "']"
@@ -46,6 +47,7 @@ let printer = (s: Parser.parserStream) => {
     }
     | CompoundSelectorEnd => {
       indentation := indentation^ - 1;
+      indentImmediate := indentImmediate^ - 1;
       "[COMPOUND_SELECTOR_END]"
     }
     | SpaceCombinator => "[SPACE_COMBINATOR]"
@@ -61,6 +63,7 @@ let printer = (s: Parser.parserStream) => {
     }
     | CompoundValueEnd => {
       indentation := indentation^ - 1;
+      indentImmediate := indentImmediate^ - 1;
       "[COMPOUND_VALUE_END]"
     }
     | Condition(str) => "[CONDITION, '" ++ str ++ "']"
@@ -70,6 +73,7 @@ let printer = (s: Parser.parserStream) => {
     }
     | FunctionEnd => {
       indentation := indentation^ - 1;
+      indentImmediate := indentImmediate^ - 1;
       "[FUNCTION_END]"
     }
     | AnimationName(str) => "[ANIMATION_NAME, '" ++ str ++ "']"
@@ -83,11 +87,13 @@ let printer = (s: Parser.parserStream) => {
     }
     | StringEnd => {
       indentation := indentation^ - 1;
+      indentImmediate := indentImmediate^ - 1;
       "[STRING_END]"
     }
     | EOF => "/eof"
     };
 
+    let indent = String.make(indentImmediate^ * 2, ' ');
     indent ++ nodeOutput
   };
 
@@ -105,7 +111,7 @@ let printer = (s: Parser.parserStream) => {
 let printToStr = (s: printerStream) => {
   let rec populate = (acc: string) : string => {
     switch (LazyStream.next(s)) {
-    | Some(x) => populate(acc ++ "\n" ++ x)
+    | Some(str) => populate(acc ++ "\n" ++ str)
     | None => acc
     }
   };
