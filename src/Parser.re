@@ -4,54 +4,56 @@ open Common;
 exception ParserError(string, int);
 
 /* For RuleStart kinds */
+[@bs.deriving jsConverter]
 type ruleKind =
-  | StyleRule /* CSSOM */
-  | CharsetRule /* CSSOM */
-  | ImportRule /* CSSOM */
-  | MediaRule /* CSSOM */
-  | FontFaceRule /* CSSOM */
-  | PageRule /* CSSOM */
-  | KeyframesRule /* CSS 3 Animations */
-  | KeyframeRule /* CSS 3 Animations */
-  | MarginRule /* CSSOM */
-  | NamespaceRule /* CSSOM */
-  | CounterStyleRule /* CSS 3 Lists */
-  | SupportsRule /* CSS 3 Conditional */
-  | DocumentRule /* CSS 3 Conditional */
-  | FontFeatureValuesRule /* CSS 3 Fonts */
-  | ViewportRule /* CSS Device Adapt */
-  | RegionStyleRule; /* Proposed for CSS 3 Regions */
+  [@bs.as 1] | StyleRule /* CSSOM */
+  [@bs.as 2] | CharsetRule /* CSSOM */
+  [@bs.as 3] | ImportRule /* CSSOM */
+  [@bs.as 4] | MediaRule /* CSSOM */
+  [@bs.as 5] | FontFaceRule /* CSSOM */
+  [@bs.as 6] | PageRule /* CSSOM */
+  [@bs.as 7] | KeyframesRule /* CSS 3 Animations */
+  [@bs.as 8] | KeyframeRule /* CSS 3 Animations */
+  [@bs.as 9] | MarginRule /* CSSOM */
+  [@bs.as 10] | NamespaceRule /* CSSOM */
+  [@bs.as 11] | CounterStyleRule /* CSS 3 Lists */
+  [@bs.as 12] | SupportsRule /* CSS 3 Conditional */
+  [@bs.as 13] | DocumentRule /* CSS 3 Conditional */
+  [@bs.as 14] | FontFeatureValuesRule /* CSS 3 Fonts */
+  [@bs.as 15] | ViewportRule /* CSS Device Adapt */
+  [@bs.as 16] | RegionStyleRule; /* Proposed for CSS 3 Regions */
 
 /* A node is represented by its (ISTF) type and potentially a value */
+[@bs.deriving jsConverter]
 type node =
-  | RuleStart(ruleKind)
-  | RuleEnd
-  | RuleName(string)
-  | Selector(string)
-  | ParentSelector
-  | UniversalSelector
-  | CompoundSelectorStart
-  | CompoundSelectorEnd
-  | SpaceCombinator
-  | DoubledChildCombinator
-  | ChildCombinator
-  | NextSiblingCombinator
-  | SubsequentSiblingCombinator
-  | Property(string)
-  | Value(string)
-  | CompoundValueStart
-  | CompoundValueEnd
-  | Condition(string)
-  | FunctionStart(string)
-  | FunctionEnd
-  | AnimationName(string)
-  | SelectorRef(interpolation)
-  | PropertyRef(interpolation)
-  | ValueRef(interpolation)
-  | PartialRef(interpolation)
-  | StringStart(string)
-  | StringEnd
-  | EOF;
+  [@bs.as 1] | RuleStart(ruleKind)
+  [@bs.as 2] | RuleEnd
+  [@bs.as 3] | RuleName(string)
+  [@bs.as 4] | Selector(string)
+  [@bs.as 5] | ParentSelector
+  [@bs.as 6] | UniversalSelector
+  [@bs.as 7] | CompoundSelectorStart
+  [@bs.as 8] | CompoundSelectorEnd
+  [@bs.as 9] | SpaceCombinator
+  [@bs.as 10] | DoubledChildCombinator
+  [@bs.as 11] | ChildCombinator
+  [@bs.as 12] | NextSiblingCombinator
+  [@bs.as 13] | SubsequentSiblingCombinator
+  [@bs.as 14] | Property(string)
+  [@bs.as 15] | Value(string)
+  [@bs.as 16] | CompoundValueStart
+  [@bs.as 17] | CompoundValueEnd
+  [@bs.as 18] | Condition(string)
+  [@bs.as 19] | FunctionStart(string)
+  [@bs.as 20] | FunctionEnd
+  [@bs.as 21] | AnimationName(string)
+  [@bs.as 22] | SelectorRef(interpolation)
+  [@bs.as 23] | PropertyRef(interpolation)
+  [@bs.as 24] | ValueRef(interpolation)
+  [@bs.as 25] | PartialRef(interpolation)
+  [@bs.as 26] | StringStart(string)
+  [@bs.as 27] | StringEnd
+  [@bs.as 28] | EOF;
 
 /* Stream type for the ParserStream */
 type parserStream = LazyStream.t(node);
