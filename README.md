@@ -3,13 +3,14 @@
 </p>
 <h1 align="center">Sweetsour</h1>
 <p align="center">
-  A CSS-in-JS parser and pipeline adhering to the ISTF spec 🍭
+  A template string CSS parser and pipeline adhering to the ISTF spec 🍭
 </p>
 
 <br />
 
-This is a reference implementation of a CSS-in-JS parser, outputting ISTF, according
-to the current [ISTF specification](https://github.com/cssinjs/istf-spec).
+This is a reference implementation of a CSS (-in-JS) parser, accepting both CSS
+strings and interpolations, and outputting ISTF, according to the current
+[ISTF specification](https://github.com/cssinjs/istf-spec).
 
 ## Status
 
@@ -30,7 +31,7 @@ interleaved interpolations, for CSS-in-JS libraries; This involves processing CS
 turning it into ISTF, and to provide a pipeline to then transform this code during either
 the build time (preprocessing), or runtime (postprocessing).
 
-The goals of ISTF and Sweetsour include:
+The goals of Sweetsour include:
 
 - Providing a common CSS-in-JS pipeline
 - Enabling stable and fast preprocessing of CSS during buildtime
@@ -38,9 +39,12 @@ The goals of ISTF and Sweetsour include:
 - Allowing optional runtime-only support i.e. using Sweetsour in the browser
 
 As opposed to other project which are fairly similar, like for instance PostCSS,
-the IST format allows us to leave markers for interpolations (typically JS / Babel AST)
-right inside it. The format will also break CSS down even further, not only to allow
-interpolations to be injected, but also for transformations to be come easier.
+ISTF allows the parser to leave markers for interpolations (typically JS / Babel AST)
+right inside of the rest of the CSS nodes.
+The format also breaks CSS down even further than PostCSS, providing tokens for each
+language feature like at rules, functions, values, attribute selectors, and more.
+This is achieved by splitting the input up into individual characters and interleaving
+them with the interpolation input.
 
 The project will provide a couple of core parts:
 
