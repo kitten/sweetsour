@@ -13,26 +13,7 @@ type outputNode =
 type outputStream = LazyStream.t(outputNode);
 
 let output = (s: Parser.parserStream) => {
-  let serialiseRuleKind = (kind: Parser.ruleKind) : int => {
-    switch (kind) {
-    | StyleRule => 1
-    | CharsetRule => 2
-    | ImportRule => 3
-    | MediaRule => 4
-    | FontFaceRule => 5
-    | PageRule => 6
-    | KeyframesRule => 7
-    | KeyframeRule => 8
-    | MarginRule => 9
-    | NamespaceRule => 10
-    | CounterStyleRule => 11
-    | SupportsRule => 12
-    | DocumentRule => 13
-    | FontFeatureValuesRule => 14
-    | ViewportRule => 15
-    | RegionStyleRule => 16
-    }
-  };
+  let serialiseRuleKind = (kind: Parser.ruleKind) : int => Parser.ruleKindToJs(kind);
 
   let serialiseNode = (n: Parser.node) : outputNode => {
     switch (n) {
