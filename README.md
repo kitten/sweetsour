@@ -46,6 +46,8 @@ This makes CSS (-in-JS) more accessible for transformations and new features, an
 the runtime a lot faster, since stringification is optimised and all transformations only have
 to be run once.
 
+[**More details about the motivation behind the project can be found in the Motivation doc**](./docs/motivation.md)
+
 ## Goals
 
 The goals of Sweetsour include:
