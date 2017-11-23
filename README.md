@@ -24,12 +24,29 @@ Currently work is ongoing to build: **The parser (~60%)**
 - [ ] Flattener for nested CSS (plugin)
 - [ ] Static prefixer (plugin)
 
-## Goals
+## Motivation
 
 The project aims to build a common and reusuable pipeline for processing CSS, including
 interleaved interpolations, for CSS-in-JS libraries; This involves processing CSS-in-JS code,
 turning it into ISTF, and to provide a pipeline to then transform this code during either
 the build time (preprocessing), or runtime (postprocessing).
+
+This will enable a couple of things. First of all, ISTF is easy to parse and can be targeted
+by plugins, which means that language-level features can easily be implemented while not breaking
+interpolations.
+
+Second, all CSS is parsed, which means that the parser will raise an error, if something's wrong
+with the code that's been written.
+
+And lastly, ISTF is built to be very efficient and is, unlike ASTs, supposed to be processed during
+the runtime, which basically means it's supposed to be fast and can be stringified very efficiently
+back to CSS.
+
+This makes CSS (-in-JS) more accessible for transformations and new features, and should make
+the runtime a lot faster, since stringification is optimised and all transformations only have
+to be run once.
+
+## Goals
 
 The goals of Sweetsour include:
 
