@@ -27,22 +27,23 @@ let peek = (queue: t('a)) : option('a) => {
 
 /* emit the first value in the queue and shift LinkedList */
 let take = (queue: t('a)) : option('a) => {
-  switch (queue.head, queue.tail) {
-  /* emit None when queue is empty */
-  | (_, None)
-  | (None, _) => None
-
+  switch (queue.head) {
   /* emit next value, and progress queue */
-  | (Some(head), Some(tail)) => {
-    queue.size = queue.size - 1;
-    queue.head = head.next;
-    if (head === tail) {
-      queue.tail = head.next;
-      Some(head.value)
+  | Some(head) => {
+    if (queue.size === 1) {
+      queue.size = 0;
+      queue.head = None;
+      queue.tail = None;
     } else {
-      Some(head.value)
-    }
+      queue.size = queue.size - 1;
+      queue.head = head.next;
+    };
+
+    Some(head.value)
   }
+
+  /* emit None when queue is empty */
+  | None => None
   }
 };
 
@@ -85,6 +86,7 @@ let concat = (first: t('a), second: t('a)) => {
   | (Some (oldTail), Some(head), Some(newTail)) => {
     oldTail.next = Some(head);
     first.tail = Some(newTail);
+    first.size = first.size + second.size;
     first
   }
 

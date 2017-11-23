@@ -96,13 +96,13 @@ describe("LinkedList", () => {
       add("test 4", b);
       let con = concat(a, b);
 
-      expect([take(con), take(con), take(con), take(con), take(con)] == [
+      expect([| take(con), take(con), take(con), take(con), take(con) |] == [|
         Some("test 1"),
         Some("test 2"),
         Some("test 3"),
         Some("test 4"),
         None
-      ]) |> toBe(true);
+      |]) |> toBe(true);
     });
 
     it("adds b.head to a.tail and sets a.tail to b.tail", () => {
