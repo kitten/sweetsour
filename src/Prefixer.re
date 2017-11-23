@@ -1,14 +1,6 @@
-type prefix =
-  | Webkit
-  | Moz
-  | Ms
-  | WebkitMoz
-  | WebkitMs
-  | All
-  | None;
-
-let prefixForProp = (prop: string) : prefix => {
+let prefixForProp = (prop: string) : option(list(string)) => {
   switch (prop) {
+  /* -webkit- prefixes */
   | "text-emphasis-position"
   | "text-emphasis"
   | "text-emphasis-style"
@@ -82,8 +74,11 @@ let prefixForProp = (prop: string) : prefix => {
   | "transition-delay"
   | "transition-duration"
   | "transition-property"
-  | "transition-timing-function" => Webkit
+  | "transition-timing-function" => {
+    Some(["-webkit-" ++ prop, prop])
+  }
 
+  /* -webkit- & -moz- prefixes */
   | "appearance"
   | "column-count"
   | "column-fill"
@@ -94,8 +89,11 @@ let prefixForProp = (prop: string) : prefix => {
   | "column-rule-width"
   | "columns"
   | "column-span"
-  | "column-width" => WebkitMoz
+  | "column-width" => {
+    Some(["-webkit-" ++ prop, "-moz-" ++ prop, prop])
+  }
 
+  /* -webkit- & -ms- prefixes */
   | "writing-mode"
   | "scroll-snap-type"
   | "scroll-snap-points-x"
@@ -105,11 +103,17 @@ let prefixForProp = (prop: string) : prefix => {
   | "flow-into"
   | "flow-from"
   | "region-fragment"
-  | "text-size-adjust" => WebkitMs
+  | "text-size-adjust" => {
+    Some(["-webkit-" ++ prop, "-ms-" ++ prop, prop])
+  }
 
+  /* -moz- prefixes */
   | "text-align-last"
-  | "tab-size" => Moz
+  | "tab-size" => {
+    Some(["-moz-" ++ prop, prop])
+  }
 
+  /* -ms- prefixes */
   | "wrap-flow"
   | "wrap-through"
   | "wrap-margin"
@@ -130,103 +134,127 @@ let prefixForProp = (prop: string) : prefix => {
   | "grid-column-gap"
   | "grid-row-gap"
   | "grid-area"
-  | "grid-gap" => Ms
+  | "grid-gap" => {
+    Some(["-ms-" ++ prop, prop])
+  }
 
+  /* -webkit- & -moz- & -ms- prefixes */
   | "hyphens"
   | "user-select"
   | "break-after"
   | "break-before"
-  | "break-inside" => All
+  | "break-inside" => {
+    Some(["-webkit-" ++ prop, "-moz-" ++ prop, "-ms-" ++ prop, prop])
+  }
 
   | _ => None
   }
 };
 
+/* Modes the prefixer can be in, allowing encapsulated and specialised logic */
+type parserMode =
+  | MainLoop
+  | PrefixPropertyLoop
+  | BufferLoop;
+
+/* Running state for prefixing */
+type state = {
+  /* the current mode of the prefixer */
+  mutable mode: parserMode,
+  /* prefixed properties for the current declaration that is being prefixed */
+  mutable prefixedProperties: list(string),
+  /* current buffer of nodes */
+  mutable nodeBuffer: LinkedList.t(Parser.node),
+  /* current pointer to a linked list node */
+  mutable bufferPointer: option(LinkedList.elementNode(Parser.node))
+};
+
 let prefixer = (s: Parser.parserStream) => {
-  let prefixedStreams: ref(list(BufferStream.t(Parser.node))) = ref([]);
-
-  let prefixSliceStream = (prop: string, s: LazyStream.t(Parser.node)) => {
-    let buffer = BufferStream.from(s);
-    BufferStream.put(Parser.Property(prop), buffer);
-    buffer
+  let state = {
+    mode: MainLoop,
+    prefixedProperties: [],
+    nodeBuffer: LinkedList.create(),
+    bufferPointer: None
   };
 
-  let isEndOfDeclaration = (n: Parser.node) => {
-    switch (n) {
-      | Property(_) => true
-      | PropertyRef(_) => true
-      | RuleEnd => true
-      | _ => false
-    }
-  };
+  /* collect all value nodes of the current declaration */
+  let takeValueNodes = () => {
+    let rec explode = (valueNodes: LinkedList.t(Parser.node)) => {
+      switch (LazyStream.peek(s)) {
+        | Some(Property(_))
+        | Some(PropertyRef(_))
+        | Some(RuleEnd) => valueNodes
 
-  let prefix = (prop: string) => {
-    let prefixMode = prefixForProp(prop);
-
-    prefixedStreams := if (prefixMode === None) {
-      []
-    } else {
-      let slice = SliceStream.from(s, [@bs] ((x) => isEndOfDeclaration(x)));
-
-      switch (prefixMode) {
-      | Webkit => [
-        prefixSliceStream("-webkit-" ++ prop, [@bs] slice()),
-        prefixSliceStream("" ++ prop, [@bs] slice())
-      ]
-      | Moz => [
-        prefixSliceStream("-moz-" ++ prop, [@bs] slice()),
-        prefixSliceStream("" ++ prop, [@bs] slice())
-      ]
-      | Ms => [
-        prefixSliceStream("-ms-" ++ prop, [@bs] slice()),
-        prefixSliceStream("" ++ prop, [@bs] slice())
-      ]
-      | WebkitMoz => [
-        prefixSliceStream("-webkit-" ++ prop, [@bs] slice()),
-        prefixSliceStream("-moz-" ++ prop, [@bs] slice()),
-        prefixSliceStream("" ++ prop, [@bs] slice())
-      ]
-      | WebkitMs => [
-        prefixSliceStream("-webkit-" ++ prop, [@bs] slice()),
-        prefixSliceStream("-ms-" ++ prop, [@bs] slice()),
-        prefixSliceStream("" ++ prop, [@bs] slice())
-      ]
-      | _ => [
-        prefixSliceStream("-webkit-" ++ prop, [@bs] slice()),
-        prefixSliceStream("-moz-" ++ prop, [@bs] slice()),
-        prefixSliceStream("-ms-" ++ prop, [@bs] slice()),
-        prefixSliceStream("" ++ prop, [@bs] slice())
-      ]
-      }
-    }
-  };
-
-  let rec nextItem = () => {
-    switch (prefixedStreams^) {
-    | [ps, ...rest] => {
-      switch (BufferStream.next(ps)) {
-        | Some(x) => Some(x)
-        | None => {
-          prefixedStreams := rest;
-          nextItem()
+        | Some(node) => {
+          LazyStream.junk(s);
+          LinkedList.add(node, valueNodes);
+          explode(valueNodes)
         }
-      }
-    }
 
-    | [] => {
-      switch (LazyStream.next(s)) {
-      | Some(Property(prop)) => {
-        prefix(prop);
-        nextItem()
+        | None => valueNodes
       }
-      | Some(x) => Some(x)
-      | None => None
-      }
+    };
+
+    explode(LinkedList.create())
+  };
+
+  /* get a prefix for a property and start the PrefixPropertyLoop */
+  let rec prefixProperty = (prop: string) : option(Parser.node) => {
+    switch (prefixForProp(prop)) {
+    | Some(prefixedProperties) => {
+      state.mode = PrefixPropertyLoop;
+      state.prefixedProperties = prefixedProperties;
+      state.nodeBuffer = takeValueNodes();
+
+      prefixPropertyLoop()
     }
+    | None => mainLoop()
+    }
+  }
+
+  /* pass through all nodes until a property is encountered */
+  and mainLoop = () : option(Parser.node) => {
+    switch (LazyStream.next(s)) {
+    | Some(Property(prop)) => prefixProperty(prop)
+    | Some(node) => Some(node)
+    | None => None
+    }
+  }
+
+  /* output the next prefixed property and start the buffer loop or switch back to the MainLoop */
+  and prefixPropertyLoop = () : option(Parser.node) => {
+    switch (state.prefixedProperties) {
+      | [prop, ...rest] => {
+        state.prefixedProperties = rest;
+        state.bufferPointer = state.nodeBuffer.head;
+        state.mode = BufferLoop;
+
+        Some(Property(prop))
+      }
+      | [] => {
+        state.mode = MainLoop;
+        mainLoop()
+      }
     }
   };
 
-  let next: [@bs] (unit => option(Parser.node)) = [@bs] (() => nextItem());
+  let bufferLoop = () : option(Parser.node) => {
+    switch (state.bufferPointer) {
+    | Some(element) => {
+      state.bufferPointer = element.next;
+      Some(element.value)
+    }
+    | None => prefixPropertyLoop()
+    }
+  };
+
+  let next: [@bs] (unit => option(Parser.node)) = [@bs] (() => {
+    switch state.mode {
+    | MainLoop => mainLoop()
+    | PrefixPropertyLoop => prefixPropertyLoop()
+    | BufferLoop => bufferLoop()
+    }
+  });
 
   LazyStream.from(next)
 };
