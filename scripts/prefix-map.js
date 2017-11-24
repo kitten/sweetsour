@@ -122,12 +122,12 @@ for (let i = 0; i < maxKeyLength; i++) {
 const output = `
 /* --------------------------------------------------------------- */
 /* START: DO NOT EDIT! AUTO GENERATED USING: scripts/prefix-map.js */
-let recurseBitmaps: array(int32) = [|
-${recurseBitmaps.map(x => `  Int32.of_int(${x})`).join(',\n')}
+let recurseBitmaps: array(int) = [|
+${recurseBitmaps.map(x => `  ${x}`).join(',\n')}
 |];
 
-let resultBitmaps: array(int32) = [|
-${resultBitmaps.map(x => `  Int32.of_int(${x})`).join(',\n')}
+let resultBitmaps: array(int) = [|
+${resultBitmaps.map(x => `  ${x}`).join(',\n')}
 |];
 
 let results: array(array(prefix)) = [|
