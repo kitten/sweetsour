@@ -1,12 +1,12 @@
 let prefixForProp = (prop: string) : option(list(string)) => {
   switch (PrefixProperty.prefixForProperty(prop)) {
-  | Some(Webkit) => Some(["-webkit-" ++ prop, prop])
-  | Some(WebkitMoz) => Some(["-webkit-" ++ prop, "-moz-" ++ prop, prop])
-  | Some(WebkitMs) => Some(["-webkit-" ++ prop, "-ms-" ++ prop, prop])
-  | Some(Moz) => Some(["-moz-" ++ prop, prop])
-  | Some(Ms) => Some(["-ms-" ++ prop, prop])
-  | Some(WebkitMozMs) => Some(["-webkit-" ++ prop, "-moz-" ++ prop, "-ms-" ++ prop, prop])
-  | None => None
+  | Webkit => Some(["-webkit-" ++ prop, prop])
+  | WebkitMoz => Some(["-webkit-" ++ prop, "-moz-" ++ prop, prop])
+  | WebkitMs => Some(["-webkit-" ++ prop, "-ms-" ++ prop, prop])
+  | Moz => Some(["-moz-" ++ prop, prop])
+  | Ms => Some(["-ms-" ++ prop, prop])
+  | WebkitMozMs => Some(["-webkit-" ++ prop, "-moz-" ++ prop, "-ms-" ++ prop, prop])
+  | NoPrefix => None
   }
 };
 

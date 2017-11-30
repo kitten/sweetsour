@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-const w = 'Webkit';
-const wm = 'WebkitMoz';
-const wms = 'WebkitMs';
-const wmms = 'WebkitMozMs';
-const ms = 'Ms';
-const m = 'Moz';
+const w = 1;
+const wm = 2;
+const wms = 3;
+const wmms = 4;
+const ms = 5;
+const m = 6;
 
 const prefixSubstrings = {
   'j': w,
@@ -22,16 +22,16 @@ const prefixSubstrings = {
   'mas': w,
   'ord': w,
   'reg': wms,
-  'tab-s': m,
   'colu': wm,
   'filt': w,
   'flow': wms,
-  'font-k': w,
+  'tab-s': m,
   'backd': w,
+  'backf': w,
   'text-e': w,
+  'font-k': w,
   'box-de': w,
   'clip-p': w,
-  'backf': w,
   'font-fe': w,
   'align-c': w,
   'align-i': w,
@@ -41,8 +41,6 @@ const prefixSubstrings = {
   'scroll-s': wms,
   'border-im': w,
   'transform': w,
-  'transform-o': w,
-  'transform-s': w,
   'text-align-l': m,
   'transition-d': w,
   'transition-p': w,
@@ -53,12 +51,13 @@ const prefixSubstrings = {
 };
 
 const charCodeBit = (str, at) => {
-  const charCode = str.charCodeAt(at);
-  // encode "any char" as 0, and all other a-z letters as 1-27
-  const bitShift = charCode < 97 || charCode > 122 ? 0 : charCode - 96;
-  // set n-th bit to 1
-  const charBitmap = 1 << bitShift;
-  return charBitmap | 0;
+  const code = str.charCodeAt(at);
+  // encode "any char" as 1, and all other a-z letters as 2-27
+  if (code < 97 || code > 122) {
+    return 1;
+  } else {
+    return (1 << (code - 96 | 0));
+  }
 };
 
 const prefixes = Object.keys(prefixSubstrings);
@@ -67,7 +66,7 @@ const maxKeyLength = Math.max(...prefixes.map(x => x.length));
 
 const recurseBitmaps = [];
 const resultBitmaps = [];
-const values = [];
+const valueBitmaps = [];
 
 const hammingWeight = x => {
   x = x - ((x >> 1) & 0x55555555)
@@ -82,7 +81,7 @@ const indexBitOnBitmap = (bitmap, positionBitmap) => (
   hammingWeight(bitmap & (positionBitmap - 1))
 )
 
-for (let i = 0; i < maxKeyLength; i++) {
+for (let i = 0; i <= maxKeyLength; i++) {
   const insertValue = [];
 
   let recurseBitmap = 0;
@@ -103,35 +102,38 @@ for (let i = 0; i < maxKeyLength; i++) {
       } else {
         recurseBitmap = recurseBitmap | charBitmap;
       }
-
     }
   }
 
-  const value = [];
+  let valueBitmap = 0;
 
   for (const [charBitmap, prefix] of insertValue) {
     const k = indexBitOnBitmap(resultBitmap, charBitmap);
-    value[k] = prefix;
+    if (k > Math.floor(32 / 4)) {
+      throw new Error('Value bitmap capacity is exhausted!');
+    }
+
+    valueBitmap = valueBitmap | (prefix << (k * 4));
   }
 
   recurseBitmaps.push(recurseBitmap);
   resultBitmaps.push(resultBitmap);
-  values.push(value);
+  valueBitmaps.push(valueBitmap);
+}
+
+const combinedBitmaps = [];
+for (let i = 0; i < resultBitmaps.length; i++) {
+  combinedBitmaps.push(recurseBitmaps[i]);
+  combinedBitmaps.push(resultBitmaps[i]);
+  combinedBitmaps.push(valueBitmaps[i]);
+  combinedBitmaps.push(0); // If our offset is divisible by 4, the operation can be optimised
 }
 
 const output = `
 /* --------------------------------------------------------------- */
 /* START: DO NOT EDIT! AUTO GENERATED USING: scripts/prefix-map.js */
-let recurseBitmaps: array(int) = [|
-${recurseBitmaps.map(x => `  ${x}`).join(',\n')}
-|];
-
-let resultBitmaps: array(int) = [|
-${resultBitmaps.map(x => `  ${x}`).join(',\n')}
-|];
-
-let results: array(array(prefix)) = [|
-${values.map(arr => `  [| ${arr.join(', ').trim()} |]`).join(',\n')}
+let combinedBitmaps: array(int) = [|
+${combinedBitmaps.map(x => `  ${x}`).join(',\n')}
 |];
 /* END: DO NOT EDIT! AUTO GENERATED USING: scripts/prefix-map.js */
 /* --------------------------------------------------------------- */
