@@ -23,6 +23,12 @@ type ruleKind =
   [@bs.as 15] | ViewportRule /* CSS Device Adapt */
   [@bs.as 16] | RegionStyleRule; /* Proposed for CSS 3 Regions */
 
+/* For attribute selector kinds */
+[@bs.deriving jsConverter]
+type attributeSelectorKind =
+  [@bs.as 1] | CaseSensitive
+  [@bs.as 2] | CaseInsensitive;
+
 /* A node is represented by its (ISTF) type and potentially a value */
 type node =
   | RuleStart(ruleKind)
@@ -52,6 +58,13 @@ type node =
   | PartialRef(interpolation)
   | StringStart(string)
   | StringEnd
+  | AttributeSelectorStart(attributeSelectorKind)
+  | AttributeSelectorEnd
+  | AttributeName(string)
+  | AttributeOperator(string)
+  | AttributeValue(string)
+  | AttributeValueRef(interpolation)
+  | ConditionRef(interpolation)
   | EOF;
 
 /* Stream type for the ParserStream */

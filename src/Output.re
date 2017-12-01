@@ -15,6 +15,9 @@ type outputStream = LazyStream.t(outputNode);
 let output = (s: Parser.parserStream) => {
   let serialiseRuleKind = (kind: Parser.ruleKind) : int => Parser.ruleKindToJs(kind);
 
+  let serialiseAttributeSelectorKind = (kind: Parser.attributeSelectorKind) : int =>
+    Parser.attributeSelectorKindToJs(kind);
+
   let serialiseNode = (n: Parser.node) : outputNode => {
     switch (n) {
     | RuleStart(ruleKind) => IntMarker(0, serialiseRuleKind(ruleKind))
@@ -44,6 +47,13 @@ let output = (s: Parser.parserStream) => {
     | PartialRef(x) => RefMarker(24, x)
     | StringStart(str) => StringMarker(25, str)
     | StringEnd => EmptyMarker(26)
+    | AttributeSelectorStart(kind) => IntMarker(27, serialiseAttributeSelectorKind(kind))
+    | AttributeSelectorEnd => EmptyMarker(28)
+    | AttributeName(str) => StringMarker(29, str)
+    | AttributeOperator(str) => StringMarker(30, str)
+    | AttributeValue(str) => StringMarker(31, str)
+    | AttributeValueRef(x) => RefMarker(24, x)
+    | ConditionRef(x) => RefMarker(25, x)
     | EOF => raise(OutputError("Unexpected Parser node"))
     }
   };
