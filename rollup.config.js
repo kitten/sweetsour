@@ -2,15 +2,24 @@ import nodeResolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 import babel from 'rollup-plugin-babel';
 import uglify from 'rollup-plugin-uglify-es';
+import es3 from 'rollup-plugin-es3';
+import filesize from 'rollup-plugin-filesize';
 
 const plugins = [
-  nodeResolve(),
   commonjs({
     ignoreGlobal: true,
   }),
+  nodeResolve({
+    modulesOnly: true,
+    jsnext: true
+  }),
+  es3(),
   babel({
     babelrc: false,
-    plugins: ['babel-plugin-closure-elimination']
+    plugins: [
+      'babel-plugin-closure-elimination',
+      'babel-plugin-minify-dead-code-elimination'
+    ]
   })
 ];
 
@@ -18,16 +27,21 @@ const prodPlugins = [
   ...plugins,
   uglify({
     toplevel: true,
+    mangle: {
+      toplevel: true
+    },
     compress: {
       passes: 2
     }
-  })
+  }),
+  filesize()
 ];
 
 const withBase = x => Object.assign({}, x, {
   input: './lib/es6/src/Main.js',
   name: 'SweetsourParser',
   exports: 'named',
+  useStrict: false,
   pureExternalImports: true
 });
 
@@ -40,11 +54,14 @@ export default [
     plugins: prodPlugins
   }, {
     output: [{
+      file: 'dist/sweetsour-parser.js',
+      format: 'umd'
+    }, {
       file: 'dist/sweetsour-parser.es.js',
       format: 'es'
     }, {
       file: 'dist/sweetsour-parser.cjs.js',
-      format: 'umd'
+      format: 'cjs'
     }],
     plugins
   }
