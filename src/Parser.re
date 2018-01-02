@@ -98,9 +98,6 @@ type state = {
 };
 
 let parser = (s: Lexer.lexerStream) => {
-  /* a buffer stream emitting tokens combined with an internal buffer */
-  let buffer = BufferStream.from(s);
-
   let state = {
     tokenRange: { startLoc: (1, 0), endLoc: (1, 0) },
     ruleLevel: 0,
@@ -108,6 +105,10 @@ let parser = (s: Lexer.lexerStream) => {
     mode: MainLoop
   };
 
+  /* a buffer stream that emitts tokens combined with an internal buffer */
+  let buffer = BufferStream.from(s);
+
+  /* returns the option(Lexer.token)'s value */
   let getTokenValue = (t: option(Lexer.token)) : option(Lexer.tokenValue) => {
     switch t {
     | Some(Token(value, startLoc, endLoc)) => {
@@ -118,6 +119,7 @@ let parser = (s: Lexer.lexerStream) => {
     }
   };
 
+  /* returns the option(Lexer.token)'s value and range */
   let getTokenValueAndRange = (t: option(Lexer.token)) : option((Lexer.tokenValue, locationRange)) => {
     switch t {
     | Some(Token(value, startLoc, endLoc)) => {
@@ -221,7 +223,7 @@ let parser = (s: Lexer.lexerStream) => {
     /* parse a combinator and fall back to a space combinator;
        also returns the number of nodes that were added */
     let parseCombinator = (nodeBuffer: LinkedList.t(node)) : int => {
-      let lastTokenRange = state.tokenRange;
+      let lastTokenEndLoc = state.tokenRange.endLoc;
 
       switch (getTokenValueAndRange(BufferStream.peek(buffer))) {
       /* the first tokens here add a combinator and check whether it's permitted before the following token */
@@ -264,7 +266,7 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* all other tokens might require a space combinator, e.g. interpolation, word... */
       | Some((_, tokenRange)) => {
-        if (isSeparatedBySpaces(lastTokenRange.endLoc, tokenRange.startLoc)) {
+        if (isSeparatedBySpaces(lastTokenEndLoc, tokenRange.startLoc)) {
           LinkedList.add(SpaceCombinator, nodeBuffer);
           1
         } else {
@@ -277,34 +279,48 @@ let parser = (s: Lexer.lexerStream) => {
     /* recursively parse all selectors by dividing the stream into functions, compounds, and lastly selectors */
     let rec parseSelectorLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) : LinkedList.t(node) => {
       /* NOTE: This uses BufferStream.peek instead of BufferStream.next, as the final token cannot be put back since the MainLoop uses the LazyStream */
-      switch (getTokenValue(BufferStream.peek(buffer))) {
+      switch (getTokenValue(BufferStream.next(buffer))) {
       /* parse a pseudo selector or selector function */
       | Some(Colon) => {
-        BufferStream.junk(buffer);
-
         /* check token after colon; this is expected to be a word or an interpolation */
-        switch (getTokenValue(BufferStream.next(buffer)), getTokenValue(BufferStream.peek(buffer))) {
+        switch (getTokenValueAndRange(BufferStream.next(buffer))) {
         /* if a function is detected parse it and continue on this level afterwards */
-        | (Some(Word(word)), Some(Paren(Opening))) => {
-          BufferStream.junk(buffer);
+        | Some((Word(word), tokenRange)) => {
+          switch (getTokenValue(BufferStream.peek(buffer))) {
+          | Some(Paren(Opening)) => {
+            BufferStream.junk(buffer);
 
-          /* parse the deeper level and wrap the result in a function */
-          let nodes = LinkedList.concat(
-            nodeBuffer,
-            wrapBufferAsFunction(
-              parseSelectorLevel(LinkedList.create(), 0, level + 1),
-              ":" ++ word
-            )
-          );
+            /* parse the deeper level and wrap the result in a function */
+            let nodes = LinkedList.concat(
+              nodeBuffer,
+              wrapBufferAsFunction(
+                parseSelectorLevel(LinkedList.create(), 0, level + 1),
+                ":" ++ word
+              )
+            );
 
-          /* parse possible combinators */
-          let combinatorSize = parseCombinator(nodes);
-          /* continue parsing nodes on this level */
-          parseSelectorLevel(nodes, length + combinatorSize + 1, level)
+            /* parse possible combinators */
+            let combinatorSize = parseCombinator(nodes);
+            /* continue parsing nodes on this level */
+            parseSelectorLevel(nodes, length + combinatorSize + 1, level)
+          }
+
+          | _ => {
+            LinkedList.add(Selector(":" ++ word), nodeBuffer);
+
+            /* set tokenRange to last token (before peek) */
+            state.tokenRange = tokenRange;
+
+            /* parse possible combinators */
+            let combinatorSize = parseCombinator(nodeBuffer);
+            /* parse a combinator and continue parsing nodes on this level */
+            parseSelectorLevel(nodeBuffer, length + combinatorSize + 1, level)
+          }
+          }
         }
 
         /* parse a pseudo selector with a selector ref */
-        | (Some(Interpolation(x)), _) => {
+        | Some((Interpolation(x), _)) => {
           LinkedList.add(Selector(":"), nodeBuffer);
           LinkedList.add(SelectorRef(x), nodeBuffer);
 
@@ -314,16 +330,6 @@ let parser = (s: Lexer.lexerStream) => {
           parseSelectorLevel(nodeBuffer, length + combinatorSize + 2, level)
         }
 
-        /* parse a "normal" pseudo selector */
-        | (Some(Word(word)), _) => {
-          LinkedList.add(Selector(":" ++ word), nodeBuffer);
-
-          /* parse possible combinators */
-          let combinatorSize = parseCombinator(nodeBuffer);
-          /* parse a combinator and continue parsing nodes on this level */
-          parseSelectorLevel(nodeBuffer, length + combinatorSize + 1, level)
-        }
-
         /* all other tokens here raise an error, since a pseudo selector must be finished */
         | _ => raise(ParserError(unexpected_msg("token", "pseudo selector"), state.tokenRange))
         }
@@ -331,7 +337,6 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* emit a universal selector and add a combinator */
       | Some(Asterisk) => {
-        BufferStream.junk(buffer);
         LinkedList.add(UniversalSelector, nodeBuffer);
 
         /* parse possible combinators */
@@ -342,7 +347,6 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* emit a parent selector and add a combinator */
       | Some(Ampersand) => {
-        BufferStream.junk(buffer);
         LinkedList.add(ParentSelector, nodeBuffer);
 
         /* parse possible combinators */
@@ -353,7 +357,6 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* emit a selector and add a combinator */
       | Some(Word(word)) => {
-        BufferStream.junk(buffer);
         LinkedList.add(Selector(word), nodeBuffer);
 
         /* parse possible combinators */
@@ -365,7 +368,6 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* emit a selector ref and add a combinator */
       | Some(Interpolation(x)) => {
-        BufferStream.junk(buffer);
         LinkedList.add(SelectorRef(x), nodeBuffer);
 
         /* parse possible combinators */
@@ -377,7 +379,6 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* wrap the past selectors as compounds, if necessary, and continue parsing on the same level */
       | Some(Comma) => {
-        BufferStream.junk(buffer);
         let first = wrapBufferAsCompound(nodeBuffer, length);
         let second = parseSelectorLevel(LinkedList.create(), 0, level);
         /* concatenate the previous and the next nodes */
@@ -385,16 +386,10 @@ let parser = (s: Lexer.lexerStream) => {
       }
 
       /* when the parser is on a deeper level, a closed parenthesis indicates the end of a function */
-      | Some(Paren(Closing)) when level > 0 => {
-        BufferStream.junk(buffer);
-        wrapBufferAsCompound(nodeBuffer, length)
-      }
+      | Some(Paren(Closing)) when level > 0 => wrapBufferAsCompound(nodeBuffer, length)
 
       /* when the parser is not on a deeper level, an opening brace indicates the end of the selectors */
-      | Some(Brace(Opening)) when level === 0 => {
-        BufferStream.junk(buffer);
-        wrapBufferAsCompound(nodeBuffer, length)
-      }
+      | Some(Brace(Opening)) when level === 0 => wrapBufferAsCompound(nodeBuffer, length)
 
       /* EOF or any other tokens are invalid here */
       | _ => raise(ParserError("Unexpected token while parsing selectors", state.tokenRange))
