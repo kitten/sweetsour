@@ -276,64 +276,68 @@ let parser = (s: Lexer.lexerStream) => {
       }
     };
 
-    /* recursively parse all selectors by dividing the stream into functions, compounds, and lastly selectors */
-    let rec parseSelectorLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) : LinkedList.t(node) => {
-      /* NOTE: This uses BufferStream.peek instead of BufferStream.next, as the final token cannot be put back since the MainLoop uses the LazyStream */
-      switch (getTokenValue(BufferStream.next(buffer))) {
-      /* parse a pseudo selector or selector function */
-      | Some(Colon) => {
-        /* check token after colon; this is expected to be a word or an interpolation */
-        switch (getTokenValueAndRange(BufferStream.next(buffer))) {
-        /* if a function is detected parse it and continue on this level afterwards */
-        | Some((Word(word), tokenRange)) => {
-          switch (getTokenValue(BufferStream.peek(buffer))) {
-          | Some(Paren(Opening)) => {
-            BufferStream.junk(buffer);
+    /* parses a pseudo selector (excluding leading colon)
+       then recursively continues parseSelectorLevel */
+    let rec parsePseudoSelector = (nodeBuffer: LinkedList.t(node), length: int, level: int) : LinkedList.t(node) => {
+      /* check token after colon; this is expected to be a word or an interpolation */
+      switch (getTokenValueAndRange(BufferStream.next(buffer))) {
+      /* if a function is detected parse it and continue on this level afterwards */
+      | Some((Word(word), tokenRange)) => {
+        switch (getTokenValue(BufferStream.peek(buffer))) {
+        | Some(Paren(Opening)) => {
+          BufferStream.junk(buffer);
 
-            /* parse the deeper level and wrap the result in a function */
-            let nodes = LinkedList.concat(
-              nodeBuffer,
-              wrapBufferAsFunction(
-                parseSelectorLevel(LinkedList.create(), 0, level + 1),
-                ":" ++ word
-              )
-            );
+          /* parse the deeper level and wrap the result in a function */
+          let nodes = LinkedList.concat(
+            nodeBuffer,
+            wrapBufferAsFunction(
+              parseSelectorLevel(LinkedList.create(), 0, level + 1),
+              ":" ++ word
+            )
+          );
 
-            /* parse possible combinators */
-            let combinatorSize = parseCombinator(nodes);
-            /* continue parsing nodes on this level */
-            parseSelectorLevel(nodes, length + combinatorSize + 1, level)
-          }
-
-          | _ => {
-            LinkedList.add(Selector(":" ++ word), nodeBuffer);
-
-            /* set tokenRange to last token (before peek) */
-            state.tokenRange = tokenRange;
-
-            /* parse possible combinators */
-            let combinatorSize = parseCombinator(nodeBuffer);
-            /* parse a combinator and continue parsing nodes on this level */
-            parseSelectorLevel(nodeBuffer, length + combinatorSize + 1, level)
-          }
-          }
+          /* parse possible combinators */
+          let combinatorSize = parseCombinator(nodes);
+          /* continue parsing nodes on this level */
+          parseSelectorLevel(nodes, length + combinatorSize + 1, level)
         }
 
-        /* parse a pseudo selector with a selector ref */
-        | Some((Interpolation(x), _)) => {
-          LinkedList.add(Selector(":"), nodeBuffer);
-          LinkedList.add(SelectorRef(x), nodeBuffer);
+        | _ => {
+          LinkedList.add(Selector(":" ++ word), nodeBuffer);
+
+          /* set tokenRange to last token (before peek) */
+          state.tokenRange = tokenRange;
 
           /* parse possible combinators */
           let combinatorSize = parseCombinator(nodeBuffer);
           /* parse a combinator and continue parsing nodes on this level */
-          parseSelectorLevel(nodeBuffer, length + combinatorSize + 2, level)
+          parseSelectorLevel(nodeBuffer, length + combinatorSize + 1, level)
         }
-
-        /* all other tokens here raise an error, since a pseudo selector must be finished */
-        | _ => raise(ParserError(unexpected_msg("token", "pseudo selector"), state.tokenRange))
         }
       }
+
+      /* parse a pseudo selector with a selector ref */
+      | Some((Interpolation(x), _)) => {
+        LinkedList.add(Selector(":"), nodeBuffer);
+        LinkedList.add(SelectorRef(x), nodeBuffer);
+
+        /* parse possible combinators */
+        let combinatorSize = parseCombinator(nodeBuffer);
+        /* parse a combinator and continue parsing nodes on this level */
+        parseSelectorLevel(nodeBuffer, length + combinatorSize + 2, level)
+      }
+
+      /* all other tokens here raise an error, since a pseudo selector must be finished */
+      | _ => raise(ParserError(unexpected_msg("token", "pseudo selector"), state.tokenRange))
+      }
+    }
+
+    /* recursively parse all selectors by dividing the stream into functions, compounds, and lastly selectors */
+    and parseSelectorLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) : LinkedList.t(node) => {
+      /* NOTE: This uses BufferStream.peek instead of BufferStream.next, as the final token cannot be put back since the MainLoop uses the LazyStream */
+      switch (getTokenValue(BufferStream.next(buffer))) {
+      /* parse a pseudo selector or selector function */
+      | Some(Colon) => parsePseudoSelector(nodeBuffer, length, level)
 
       /* emit a universal selector and add a combinator */
       | Some(Asterisk) => {
