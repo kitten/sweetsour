@@ -1,5 +1,5 @@
 {
-  "name": "sweetsour-parser",
+  "name": "sweetsour",
   "version": "0.1.0",
   "main": "dist/sweetsour-parser.cjs.js",
   "jsnext:main": "dist/sweetsour-parser.es.js",
