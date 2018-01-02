@@ -1,3 +1,5 @@
+import { join } from 'path';
+
 import nodeResolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 import babel from 'rollup-plugin-babel';
@@ -17,6 +19,7 @@ const plugins = [
   babel({
     babelrc: false,
     plugins: [
+      join(__dirname, './babel/renameErrors.js'),
       'babel-plugin-closure-elimination',
       'babel-plugin-minify-dead-code-elimination'
     ]
