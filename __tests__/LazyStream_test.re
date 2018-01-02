@@ -82,4 +82,24 @@ describe("LazyStream", () => {
 
     expect(toArray(testStream)) |> toEqual([| 1, 2, 3, 4, 5 |]);
   });
+
+  it("allows withSideeffect to wrap a stream and call a function on each emission", () => {
+    let index = ref(0);
+    let values = ref([]);
+
+    let testStream = from([@bs] () => {
+      if (index^ < 5) {
+        index := index^ + 1;
+        Some(index^)
+      } else {
+        None
+      }
+    }) |> withSideeffect([@bs] (value) => {
+      values := [value, ...values^];
+    });
+
+    ignore(toArray(testStream));
+
+    expect(values^) |> toEqual([ 5, 4, 3, 2, 1 ]);
+  });
 });
