@@ -106,7 +106,7 @@ let lexer = (input: Input.inputStream) => {
   };
 
   /* wrap inputStream in row/column counting sideeffect */
-  let s = LazyStream.withSideeffect(input, [@bs] (x: Input.inputValue) => {
+  let s = input |> LazyStream.withSideeffect([@bs] (x: Input.inputValue) => {
     switch x {
     | Char('\n') => nextRow()
     | _ => nextColumn()

@@ -54,7 +54,7 @@ let toArray = (stream: t('a)) => {
 };
 
 /* wraps a LazyStream and executes a sideeffect when a new value is being emitted */
-let withSideeffect = (stream: t('a), sideeffect: [@bs] ('a) => unit) : t('a) => {
+let withSideeffect = (sideeffect: [@bs] ('a) => unit, stream: t('a)) : t('a) => {
   from([@bs] () => {
     switch (next(stream)) {
     | Some(value) as x => {

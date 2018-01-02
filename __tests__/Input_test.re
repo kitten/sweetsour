@@ -17,7 +17,7 @@ describe("Input", () => {
       Char('l'),
       Char('l'),
       Char('o')
-    |]) |> toBe(true);
+    |]) |> toBe(true)
   });
 
   it("correctly interleaves interpolations inbetween strings", () => {
@@ -34,11 +34,11 @@ describe("Input", () => {
         Interpolation(interpolationValueB),
         Char('1'),
         Char('2')
-      |]);
+      |])
   });
 
   it("throws when number of interpolations is invalid", () => {
     expect(() => Input.input([| "abc", "def" |], [||]))
-      |> toThrowMessage("Expected no of interpolations to equal no of strings - 1. The input is expected to be strings interleaved by the second interpolations array!");
+      |> toThrowMessage("Expected no of interpolations to equal no of strings - 1. The input is expected to be strings interleaved by the second interpolations array!")
   });
 });
