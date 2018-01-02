@@ -52,3 +52,16 @@ let toArray = (stream: t('a)) => {
 
   populate()
 };
+
+/* wraps a LazyStream and executes a sideeffect when a new value is being emitted */
+let withSideeffect = (sideeffect: [@bs] ('a) => unit, stream: t('a)) : t('a) => {
+  from([@bs] () => {
+    switch (next(stream)) {
+    | Some(value) as x => {
+      ([@bs] sideeffect(value));
+      x
+    }
+    | None => None
+    }
+  });
+};

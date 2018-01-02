@@ -14,7 +14,7 @@ describe("LinkedList", () => {
 
       [take(testList), take(testList), take(testList)]
         |> expect
-        |> toEqual([ Some("test 1"), Some("test 2"), None ]);
+        |> toEqual([ Some("test 1"), Some("test 2"), None ])
     });
 
     it("updates the size property on a list", () => {
@@ -25,7 +25,7 @@ describe("LinkedList", () => {
       let initialSize = testList.size;
       add("test 3", testList);
 
-      expect([initialSize, testList.size]) |> toEqual([2, 3]);
+      expect([initialSize, testList.size]) |> toEqual([2, 3])
     });
   });
 
@@ -39,7 +39,7 @@ describe("LinkedList", () => {
 
       [take(testList), take(testList), take(testList)]
         |> expect
-        |> toEqual([ Some("test 2"), Some("test 1"), None ]);
+        |> toEqual([ Some("test 2"), Some("test 1"), None ])
     });
 
     it("updates the size property on a list", () => {
@@ -50,7 +50,7 @@ describe("LinkedList", () => {
       let initialSize = testList.size;
       unshift("test 3", testList);
 
-      expect([initialSize, testList.size]) |> toEqual([2, 3]);
+      expect([initialSize, testList.size]) |> toEqual([2, 3])
     });
   });
 
@@ -64,7 +64,7 @@ describe("LinkedList", () => {
 
       [peek(testList), take(testList), take(testList), take(testList)]
         |> expect
-        |> toEqual([ Some("test 1"), Some("test 1"), Some("test 2"), None ]);
+        |> toEqual([ Some("test 1"), Some("test 1"), Some("test 2"), None ])
     });
   });
 
@@ -76,7 +76,7 @@ describe("LinkedList", () => {
       add("test 1", a);
       let b = create();
 
-      expect(concat(a, b)) |> toBe(a);
+      expect(concat(a, b)) |> toBe(a)
     });
 
     it("returns b when a is empty", () => {
@@ -84,7 +84,7 @@ describe("LinkedList", () => {
       let b = create();
       add("test 1", b);
 
-      expect(concat(a, b)) |> toBe(b);
+      expect(concat(a, b)) |> toBe(b)
     });
 
     it("adds b.head to a.tail to concatenate the lists", () => {
@@ -102,7 +102,7 @@ describe("LinkedList", () => {
         Some("test 3"),
         Some("test 4"),
         None
-      |]) |> toBe(true);
+      |]) |> toBe(true)
     });
 
     it("adds b.head to a.tail and sets a.tail to b.tail", () => {
@@ -114,7 +114,7 @@ describe("LinkedList", () => {
       add("test 4", b);
       let con = concat(a, b);
 
-      expect(con.tail == b.tail) |> toBe(true);
+      expect(con.tail == b.tail) |> toBe(true)
     });
   });
 });
