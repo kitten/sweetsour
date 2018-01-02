@@ -52,3 +52,15 @@ let toArray = (stream: t('a)) => {
 
   populate()
 };
+
+let withSideeffect = (stream: t('a), sideeffect: [@bs] ('a) => unit) : t('a) => {
+  from([@bs] () => {
+    switch (next(stream)) {
+    | Some(value) as x => {
+      ([@bs] sideeffect(value));
+      x
+    }
+    | None => None
+    }
+  });
+};
