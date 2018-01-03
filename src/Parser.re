@@ -337,7 +337,15 @@ let parser = (s: Lexer.lexerStream) => {
       /* NOTE: This uses BufferStream.peek instead of BufferStream.next, as the final token cannot be put back since the MainLoop uses the LazyStream */
       switch (getTokenValue(BufferStream.next(buffer))) {
       /* parse a pseudo selector or selector function */
-      | Some(Colon) => parsePseudoSelector(nodeBuffer, length, level)
+      | Some(Colon) => {
+        /* match an optional, second colon */
+        switch (getTokenValue(BufferStream.peek(buffer))) {
+          | Some(Colon) => BufferStream.junk(buffer)
+          | _ => ()
+        };
+
+        parsePseudoSelector(nodeBuffer, length, level)
+      }
 
       /* emit a universal selector and add a combinator */
       | Some(Asterisk) => {

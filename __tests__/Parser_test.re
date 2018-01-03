@@ -118,6 +118,25 @@ describe("Parser", () => {
       |];
     });
 
+    /* Parse: `.test::before{}` */
+    it("parses explicit pseudo-element selectors", () => {
+      expect(parse([|
+        Token(Word(".test"), (1, 1), (1, 5)),
+        Token(Colon, (1, 6), (1, 6)),
+        Token(Colon, (1, 7), (1, 7)),
+        Token(Word("before"), (1, 8), (1, 13)),
+        Token(Brace(Opening), (1, 14), (1, 14)),
+        Token(Brace(Closing), (1, 15), (1, 15))
+      |])) == [|
+        RuleStart(StyleRule),
+        CompoundSelectorStart,
+        Selector(".test"),
+        Selector(":before"),
+        CompoundSelectorEnd,
+        RuleEnd
+      |];
+    });
+
     /* Parse: `.test :hover{}` */
     it("parses universal pseudo selector (shorthand)", () => {
       expect(parse([|
