@@ -90,6 +90,15 @@ let printer = (s: Parser.parserStream) => {
       indentImmediate := indentImmediate^ - 1;
       "[STRING_END]"
     }
+    | AttributeSelectorStart(kind) =>
+      "[ATTRIBUTE_SELECTOR_START," ++ string_of_int(Parser.attributeSelectorKindToJs(kind)) ++ "]"
+    | AttributeSelectorEnd => "[ATTRIBUTE_SELECTOR_END]"
+    | AttributeName(str) => "[ATTRIBUTE_NAME, '" ++ str ++ "']"
+    | AttributeNameRef(_) => "[ATTRIBUTE_NAME_REF, ref]"
+    | AttributeOperator(str) => "[ATTRIBUTE_OPERATOR, '" ++ str ++ "']"
+    | AttributeValue(str) => "[ATTRIBUTE_VALUE, '" ++ str ++ "']"
+    | AttributeValueRef(_) => "[ATTRIBUTE_VALUE_REF, ref]"
+    | ConditionRef(_) => "[CONDITION_REF, ref]"
     | EOF => "/eof"
     };
 
