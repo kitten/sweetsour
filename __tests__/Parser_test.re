@@ -344,6 +344,128 @@ describe("Parser", () => {
     });
   });
 
+  describe("Attribute Selectors", () => {
+    open Expect;
+    open! Expect.Operators;
+
+    /*let inter = create_interpolation(1);*/
+
+    /* Parse: `.test[attr] {}` */
+    it("parses name-only attribute selectors", () => {
+      expect(parse([|
+        Token(Word(".test"), (1, 1), (1, 5)),
+        Token(Bracket(Opening), (1, 6), (1, 6)),
+        Token(Word("attr"), (1, 7), (1, 10)),
+        Token(Bracket(Closing), (1, 8), (1, 8)),
+        Token(Brace(Opening), (1, 10), (1, 10)),
+        Token(Brace(Closing), (1, 11), (1, 11))
+      |])) == [|
+        RuleStart(StyleRule),
+        CompoundSelectorStart,
+        Selector(".test"),
+        AttributeSelectorStart(CaseSensitive),
+        AttributeName("attr"),
+        AttributeSelectorEnd,
+        CompoundSelectorEnd,
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `.test [abc] {}` */
+    it("parses universal attribute selectors (shorthand)", () => {
+      expect(parse([|
+        Token(Word(".test"), (1, 1), (1, 5)),
+        Token(Bracket(Opening), (1, 7), (1, 7)),
+        Token(Word("abc"), (1, 8), (1, 10)),
+        Token(Bracket(Closing), (1, 8), (1, 8)),
+        Token(Brace(Opening), (1, 10), (1, 10)),
+        Token(Brace(Closing), (1, 11), (1, 11))
+      |])) == [|
+        RuleStart(StyleRule),
+        CompoundSelectorStart,
+        Selector(".test"),
+        SpaceCombinator,
+        AttributeSelectorStart(CaseSensitive),
+        AttributeName("abc"),
+        AttributeSelectorEnd,
+        CompoundSelectorEnd,
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `[attr="test"] {}` */
+    it("parses comparative attribute selectors (=)", () => {
+      expect(parse([|
+        Token(Bracket(Opening), (1, 1), (1, 1)),
+        Token(Word("attr"), (1, 2), (1, 5)),
+        Token(Equal, (1, 6), (1, 6)),
+        Token(Quote(Double), (1, 7), (1, 7)),
+        Token(Str("test"), (1, 8), (1, 11)),
+        Token(Quote(Double), (1, 12), (1, 12)),
+        Token(Bracket(Closing), (1, 13), (1, 13)),
+        Token(Brace(Opening), (1, 15), (1, 15)),
+        Token(Brace(Closing), (1, 16), (1, 16))
+      |])) == [|
+        RuleStart(StyleRule),
+        AttributeSelectorStart(CaseSensitive),
+        AttributeName("attr"),
+        AttributeOperator("="),
+        Value("\"test\""),
+        AttributeSelectorEnd,
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `[attr^="test"]{}` */
+    it("parses comparative attribute selectors (^=)", () => {
+      expect(parse([|
+        Token(Bracket(Opening), (1, 1), (1, 1)),
+        Token(Word("attr"), (1, 2), (1, 5)),
+        Token(Caret, (1, 6), (1, 6)),
+        Token(Equal, (1, 7), (1, 7)),
+        Token(Quote(Double), (1, 8), (1, 8)),
+        Token(Str("test"), (1, 9), (1, 12)),
+        Token(Quote(Double), (1, 13), (1, 13)),
+        Token(Bracket(Closing), (1, 14), (1, 14)),
+        Token(Brace(Opening), (1, 15), (1, 15)),
+        Token(Brace(Closing), (1, 16), (1, 16))
+      |])) == [|
+        RuleStart(StyleRule),
+        AttributeSelectorStart(CaseSensitive),
+        AttributeName("attr"),
+        AttributeOperator("^="),
+        Value("\"test\""),
+        AttributeSelectorEnd,
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `[attr^="test" i]{}` */
+    it("parses caseinsensitive attribute selectors", () => {
+      expect(parse([|
+        Token(Bracket(Opening), (1, 1), (1, 1)),
+        Token(Word("attr"), (1, 2), (1, 5)),
+        Token(Caret, (1, 6), (1, 6)),
+        Token(Equal, (1, 7), (1, 7)),
+        Token(Quote(Double), (1, 8), (1, 8)),
+        Token(Str("test"), (1, 9), (1, 12)),
+        Token(Quote(Double), (1, 13), (1, 13)),
+        Token(Word("i"), (1, 15), (1, 15)),
+        Token(Bracket(Closing), (1, 16), (1, 16)),
+        Token(Brace(Opening), (1, 17), (1, 17)),
+        Token(Brace(Closing), (1, 18), (1, 18))
+      |])) == [|
+        RuleStart(StyleRule),
+        AttributeSelectorStart(CaseInsensitive),
+        AttributeName("attr"),
+        AttributeOperator("^="),
+        Value("\"test\""),
+        AttributeSelectorEnd,
+        RuleEnd
+      |];
+    });
+  });
+
   describe("Declarations", () => {
     open Expect;
     open! Expect.Operators;

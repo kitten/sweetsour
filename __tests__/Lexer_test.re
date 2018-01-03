@@ -18,7 +18,7 @@ describe("Lexer", () => {
     open! Expect.Operators;
 
     it("tokenises single chars correctly", () => {
-      expect(tokenise("{}[]()!=:;+&>*~,|$")) == [|
+      expect(tokenise("{}[]()!=:;+&>*~,|$^")) == [|
         Token(Brace(Opening), (1, 1), (1, 1)),
         Token(Brace(Closing), (1, 2), (1, 2)),
         Token(Bracket(Opening), (1, 3), (1, 3)),
@@ -36,7 +36,8 @@ describe("Lexer", () => {
         Token(Tilde, (1, 15), (1, 15)),
         Token(Comma, (1, 16), (1, 16)),
         Token(Pipe, (1, 17), (1, 17)),
-        Token(Dollar, (1, 18), (1, 18))
+        Token(Dollar, (1, 18), (1, 18)),
+        Token(Caret, (1, 19), (1, 19))
       |];
     });
 
@@ -51,7 +52,7 @@ describe("Lexer", () => {
     });
 
     it("throws when unexpected tokens are encountered", () => {
-      expect(() => tokenise("^")) |> toThrowMessage("unexpected '^' while parsing tokens");
+      expect(() => tokenise("`")) |> toThrowMessage("unexpected '`' while parsing tokens");
     });
   });
 
