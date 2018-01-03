@@ -348,8 +348,6 @@ describe("Parser", () => {
     open Expect;
     open! Expect.Operators;
 
-    /*let inter = create_interpolation(1);*/
-
     /* Parse: `.test[attr] {}` */
     it("parses name-only attribute selectors", () => {
       expect(parse([|
@@ -410,7 +408,7 @@ describe("Parser", () => {
         AttributeSelectorStart(CaseSensitive),
         AttributeName("attr"),
         AttributeOperator("="),
-        Value("\"test\""),
+        AttributeValue("\"test\""),
         AttributeSelectorEnd,
         RuleEnd
       |];
@@ -434,7 +432,7 @@ describe("Parser", () => {
         AttributeSelectorStart(CaseSensitive),
         AttributeName("attr"),
         AttributeOperator("^="),
-        Value("\"test\""),
+        AttributeValue("\"test\""),
         AttributeSelectorEnd,
         RuleEnd
       |];
@@ -459,7 +457,7 @@ describe("Parser", () => {
         AttributeSelectorStart(CaseInsensitive),
         AttributeName("attr"),
         AttributeOperator("^="),
-        Value("\"test\""),
+        AttributeValue("\"test\""),
         AttributeSelectorEnd,
         RuleEnd
       |];

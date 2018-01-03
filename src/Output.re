@@ -52,7 +52,9 @@ let output = (s: Parser.parserStream) => {
     | AttributeName(str) => StringMarker(29, str)
     | AttributeNameRef(x) => RefMarker(30, x)
     | AttributeOperator(str) => StringMarker(31, str)
-    | ConditionRef(x) => RefMarker(32, x)
+    | AttributeValue(str) => StringMarker(32, str)
+    | AttributeValueRef(x) => RefMarker(33, x)
+    | ConditionRef(x) => RefMarker(34, x)
     | EOF => raise(OutputError("Unexpected Parser node"))
     }
   };

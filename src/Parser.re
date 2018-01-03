@@ -63,11 +63,18 @@ type node =
   | AttributeName(string)
   | AttributeNameRef(interpolation)
   | AttributeOperator(string)
+  | AttributeValue(string)
+  | AttributeValueRef(interpolation)
   | ConditionRef(interpolation)
   | EOF;
 
 /* Stream type for the ParserStream */
 type parserStream = LazyStream.t(node);
+
+/* Mode for parseString to determine what value nodes to add */
+type stringValueKind =
+  | DeclarationValue
+  | AttributeSelectorValue;
 
 /* Modes the parser can be in, allowing encapsulated and specialised logic */
 type parserMode =
@@ -130,13 +137,17 @@ let parser = (s: Lexer.lexerStream) => {
   };
 
   /* parses a string starting after the first quote */
-  let parseString = (kind: Lexer.quoteKind) : LinkedList.t(node) => {
+  let parseString = (valueKind: stringValueKind, quoteKind: Lexer.quoteKind) : LinkedList.t(node) => {
     /* add a Value node to nodeBuffer if the string is not empty */
     let addValueNode = (str: string, nodeBuffer: LinkedList.t(node)) => {
       switch (str) {
       | "" => nodeBuffer
       | _ => {
-        LinkedList.add(Value(str), nodeBuffer);
+        LinkedList.add(switch (valueKind) {
+        | DeclarationValue => Value(str)
+        | AttributeSelectorValue => AttributeValue(str)
+        }, nodeBuffer);
+
         nodeBuffer
       }
       }
@@ -145,22 +156,26 @@ let parser = (s: Lexer.lexerStream) => {
     let nodeBuffer = LinkedList.create();
 
     /* turn the quote kind into a string */
-    let quoteStr = switch (kind) {
+    let quoteStr = switch (quoteKind) {
       | Double => "\""
       | Single => "'"
     };
 
     let rec parse = (str: string, containsInterpolation: bool) => {
       switch (getTokenValue(BufferStream.next(buffer))) {
-      /* interpolations are added as "ValueRef"s and containsInterpolation is set to true */
+      /* interpolations are added as "(Attribute)ValueRef"s and containsInterpolation is set to true */
       | Some(Interpolation(x)) => {
-        /* add the Value of the past str string and then add the ValueRef */
-        LinkedList.add(ValueRef(x), addValueNode(str, nodeBuffer));
+        /* add the Value of the past str string and then add the ValueRef/AttributeValueRef */
+        LinkedList.add(switch (valueKind) {
+        | DeclarationValue => ValueRef(x)
+        | AttributeSelectorValue => AttributeValueRef(x)
+        }, addValueNode(str, nodeBuffer));
+
         parse("", true)
       }
 
       /* when the ending quote is reached, return the result */
-      | Some(Quote(endKind)) when endKind === kind => {
+      | Some(Quote(endKind)) when endKind === quoteKind => {
         /* if interpolations or more than one string were parsed, wrap the nodes in a compound */
         if (nodeBuffer.size > 1 || containsInterpolation) {
           LinkedList.unshift(StringStart(quoteStr), addValueNode(str, nodeBuffer));
@@ -217,7 +232,7 @@ let parser = (s: Lexer.lexerStream) => {
     let parseAttributeValue = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) =>
       switch (getTokenValue(BufferStream.next(buffer))) {
       | Some(Quote(kind)) => {
-        let innerValues = parseString(kind);
+        let innerValues = parseString(AttributeSelectorValue, kind);
         parseCasingMarker(LinkedList.concat(nodeBuffer, innerValues))
       }
       | _ => raise(ParserError(unexpected_msg("token", "attribute value") ++ expected_msg("string"), state.tokenRange))
@@ -548,7 +563,7 @@ let parser = (s: Lexer.lexerStream) => {
       /* detect quotes and start parsing strings */
       | Some(Quote(kind)) => {
         BufferStream.junk(buffer);
-        let innerValues = parseString(kind);
+        let innerValues = parseString(DeclarationValue, kind);
         parseValueLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
       }
 
