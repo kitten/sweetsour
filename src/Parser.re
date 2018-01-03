@@ -61,9 +61,8 @@ type node =
   | AttributeSelectorStart(attributeSelectorKind)
   | AttributeSelectorEnd
   | AttributeName(string)
+  | AttributeNameRef(interpolation)
   | AttributeOperator(string)
-  | AttributeValue(string)
-  | AttributeValueRef(interpolation)
   | ConditionRef(interpolation)
   | EOF;
 
@@ -189,6 +188,82 @@ let parser = (s: Lexer.lexerStream) => {
     LinkedList.unshift(FunctionStart(fnName), nodeBuffer);
     LinkedList.add(FunctionEnd, nodeBuffer);
     nodeBuffer
+  };
+
+  /* parses an attribute selector and returns the resulting node buffer */
+  let parseAttributeSelector = () : LinkedList.t(node) => {
+    let wrapNodes = (kind: attributeSelectorKind, nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) => {
+      LinkedList.unshift(AttributeSelectorStart(kind), nodeBuffer);
+      LinkedList.add(AttributeSelectorEnd, nodeBuffer);
+      nodeBuffer
+    };
+
+    let parseCasingMarker = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) =>
+      switch (getTokenValue(BufferStream.next(buffer))) {
+      | Some(Word("i"))
+      | Some(Word("I"))
+      | Some(Word("\\i"))
+      | Some(Word("\\I")) => {
+        switch (getTokenValue(BufferStream.next(buffer))) {
+        | Some(Bracket(Closing)) => wrapNodes(CaseInsensitive, nodeBuffer)
+        | _ => raise(ParserError(unexpected_msg("token", "attribute selector"), state.tokenRange))
+        };
+      }
+
+      | Some(Bracket(Closing)) => wrapNodes(CaseSensitive, nodeBuffer)
+      | _ => raise(ParserError(unexpected_msg("token", "attribute selector"), state.tokenRange))
+      };
+
+    let parseAttributeValue = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) =>
+      switch (getTokenValue(BufferStream.next(buffer))) {
+      | Some(Quote(kind)) => {
+        let innerValues = parseString(kind);
+        parseCasingMarker(LinkedList.concat(nodeBuffer, innerValues))
+      }
+      | _ => raise(ParserError(unexpected_msg("token", "attribute value") ++ expected_msg("string"), state.tokenRange))
+      };
+
+    let parseAttributeOperator = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) =>
+      switch (getTokenValue(BufferStream.next(buffer))) {
+      | Some(Equal) => {
+        LinkedList.add(AttributeOperator("="), nodeBuffer);
+        parseAttributeValue(nodeBuffer)
+      }
+
+      | Some((Tilde | Pipe | Caret | Dollar | Asterisk) as op) => {
+        switch (getTokenValue(BufferStream.next(buffer))) {
+        | Some(Equal) => ()
+        | _ => raise(ParserError(unexpected_msg("token", "attribute operator") ++ expected_msg("equal sign"), state.tokenRange))
+        };
+
+        let node = AttributeOperator(switch (op) {
+        | Tilde => "~="
+        | Pipe => "|="
+        | Caret => "^="
+        | Dollar => "$="
+        | Asterisk => "*="
+        | _ => "="
+        });
+
+        LinkedList.add(node, nodeBuffer);
+        parseAttributeValue(nodeBuffer)
+      }
+
+      | Some(Bracket(Closing)) => wrapNodes(CaseSensitive, nodeBuffer)
+      | _ => raise(ParserError(unexpected_msg("token", "attribute selector"), state.tokenRange))
+      };
+
+    let parseAttributeName = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) => {
+      switch (getTokenValue(BufferStream.next(buffer))) {
+      | Some(Word(word)) => LinkedList.add(AttributeName(word), nodeBuffer)
+      | Some(Interpolation(x)) => LinkedList.add(AttributeNameRef(x), nodeBuffer)
+      | _ => raise(ParserError(unexpected_msg("token", "attribute selector") ++ expected_msg("attribute name"), state.tokenRange))
+      };
+
+      parseAttributeOperator(nodeBuffer)
+    };
+
+    parseAttributeName(LinkedList.create())
   };
 
   /* parses all selector nodes recursively, including functions and compound selectors,
@@ -345,6 +420,19 @@ let parser = (s: Lexer.lexerStream) => {
         };
 
         parsePseudoSelector(nodeBuffer, length, level)
+      }
+
+      | Some(Bracket(Opening)) => {
+        /* parse attribute selector and add result to the node buffer */
+        let nodes = LinkedList.concat(
+          nodeBuffer,
+          parseAttributeSelector()
+        );
+
+        /* parse possible combinators */
+        let combinatorSize = parseCombinator(nodes);
+        /* continue parsing nodes on this level */
+        parseSelectorLevel(nodes, length + combinatorSize + 1, level)
       }
 
       /* emit a universal selector and add a combinator */

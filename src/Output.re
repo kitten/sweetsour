@@ -50,10 +50,9 @@ let output = (s: Parser.parserStream) => {
     | AttributeSelectorStart(kind) => IntMarker(27, serialiseAttributeSelectorKind(kind))
     | AttributeSelectorEnd => EmptyMarker(28)
     | AttributeName(str) => StringMarker(29, str)
-    | AttributeOperator(str) => StringMarker(30, str)
-    | AttributeValue(str) => StringMarker(31, str)
-    | AttributeValueRef(x) => RefMarker(24, x)
-    | ConditionRef(x) => RefMarker(25, x)
+    | AttributeNameRef(x) => RefMarker(30, x)
+    | AttributeOperator(str) => StringMarker(31, str)
+    | ConditionRef(x) => RefMarker(32, x)
     | EOF => raise(OutputError("Unexpected Parser node"))
     }
   };

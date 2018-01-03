@@ -32,6 +32,7 @@ type tokenValue =
   | Comma
   | Pipe
   | Dollar
+  | Caret
   | EOF;
 
 type token = Token(tokenValue, (int, int), (int, int));
@@ -434,6 +435,7 @@ let lexer = (input: Input.inputStream) => {
     | Some(Char('$')) => Dollar
     | Some(Char('*')) => Asterisk
     | Some(Char('&')) => Ampersand
+    | Some(Char('^')) => Caret
 
     /* single char token; closing parenthesis, see below for opening */
     | Some(Char(')')) => Paren(Closing)
