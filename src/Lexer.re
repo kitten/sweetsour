@@ -126,6 +126,7 @@ let lexer = (input: Input.inputStream) => {
     | '0'..'9'
     | '#'
     | '.' => true
+    | '-' => true
     | _ => false
     }
   };

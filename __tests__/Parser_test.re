@@ -481,6 +481,19 @@ describe("Parser", () => {
       |];
     });
 
+    /* Parse: `-ms-color: papayawhip;` */
+    it("parses declarations containing a vendored property", () => {
+      expect(parse([|
+        Token(Word("-ms-color"), (1, 1), (1, 9)),
+        Token(Colon, (1, 10), (1, 10)),
+        Token(Word("papayawhip"), (1, 12), (1, 21)),
+        Token(Semicolon, (1, 22), (1, 22))
+      |])) == [|
+        Property("-ms-color"),
+        Value("papayawhip"),
+      |];
+    });
+
     /* Parse: `;color: papayawhip;;` */
     it("ignores free semicolons", () => {
       expect(parse([|

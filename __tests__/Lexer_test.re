@@ -88,6 +88,12 @@ describe("Lexer", () => {
         Token(AtWord("@media"), (1, 1), (1, 6))
       |];
     });
+
+    it("tokenises words including leading dashes correctly", () => {
+      expect(tokenise("-ms-text-size-adjust")) == [|
+        Token(Word("-ms-text-size-adjust"), (1, 1), (1, 20))
+      |];
+    });
   });
 
   describe("Multiline Comments", () => {
