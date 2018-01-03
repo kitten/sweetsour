@@ -137,6 +137,30 @@ describe("Parser", () => {
       |];
     });
 
+    /* Parse: `.test :hover{}` */
+    it("parses universal and parent selectors", () => {
+      expect(parse([|
+        Token(Ampersand, (1, 1), (1, 1)),
+        Token(Word(".abc"), (1, 3), (1, 6)),
+        Token(Asterisk, (1, 8), (1, 8)),
+        Token(Colon, (1, 9), (1, 9)),
+        Token(Word("hover"), (1, 10), (1, 14)),
+        Token(Brace(Opening), (1, 15), (1, 15)),
+        Token(Brace(Closing), (1, 15), (1, 15))
+      |])) == [|
+        RuleStart(StyleRule),
+        CompoundSelectorStart,
+        ParentSelector,
+        SpaceCombinator,
+        Selector(".abc"),
+        SpaceCombinator,
+        UniversalSelector,
+        Selector(":hover"),
+        CompoundSelectorEnd,
+        RuleEnd
+      |];
+    });
+
     /* Parse: `.test:${x} div {}` */
     it("parses pseudo selectors containing interpolations", () => {
       let inter = create_interpolation(1);
