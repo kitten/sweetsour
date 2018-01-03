@@ -58,7 +58,8 @@
       "ml"
     ],
     "testMatch": [
-      "**/__tests__/*_test.re"
+      "**/__tests__/*_test.re",
+      "**/__tests__/suite/*_test.re"
     ],
     "transform": {
       ".(re|ml)": "bs-loader"
