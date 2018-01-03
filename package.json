@@ -9,7 +9,10 @@
     "build": "bsb -make-world",
     "watch": "bsb -make-world -w",
     "test": "jest",
+    "test:size": "bundlesize",
     "test:watch": "jest --watch",
+    "precommit": "lint-staged",
+    "lint-staged": "lint-staged",
     "dist": "rollup -c rollup.config.js"
   },
   "keywords": [
@@ -32,7 +35,10 @@
     "bs-jest": "^0.3.2",
     "bs-loader": "^2.0.0",
     "bs-platform": "^2.1.0",
+    "bundlesize": "^0.15.3",
+    "husky": "^0.14.3",
     "jest": "^21.2.1",
+    "lint-staged": "^6.0.0",
     "npm-run-all": "^4.1.2",
     "refmt": "^1.13.7-1",
     "rollup": "^0.50.0",
@@ -76,5 +82,16 @@
         ]
       }
     }
-  }
+  },
+  "lint-staged": {
+    "*.js": [
+      "jest --bail --findRelatedTests"
+    ]
+  },
+  "bundlesize": [
+    {
+      "path": "./dist/sweetsour-parser.min.js",
+      "threshold": "7.0kB"
+    }
+  ]
 }
