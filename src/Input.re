@@ -2,15 +2,12 @@ open Common;
 
 exception InputError(string);
 
-/* An input value that can either be a char or an interpolation */
 type inputValue =
   | Char(char)
   | Interpolation(interpolation);
 
-/* Stream type for the InputStream */
 type inputStream = LazyStream.t(inputValue);
 
-/* Running state for input serialisation */
 type state = {
   mutable currString: string,
   mutable currStringSize: int,
@@ -43,7 +40,7 @@ let input = (strings: array(string), interpolations: array(interpolation)) : inp
     state.charIndex = -1;
   };
 
-  let rec nextInputValue = () : option(inputValue) => {
+  let rec nextInputValue = () => {
     let nextCharIndex = state.charIndex + 1;
     let nextStringIndex = state.stringIndex + 1;
 
@@ -64,9 +61,7 @@ let input = (strings: array(string), interpolations: array(interpolation)) : inp
   };
 
   /* next function needs to be defined as uncurried and arity-0 at its definition */
-  let next: [@bs] (unit => option(inputValue)) = [@bs] (() => {
-    nextInputValue()
-  });
+  let next = ([@bs] () => nextInputValue());
 
   LazyStream.from(next)
 };

@@ -3,17 +3,14 @@ open Common;
 /* an error raised by the lexer contains a message and a row/column location */
 exception LexerError(string, (int, int));
 
-/* For tokens that are opening or closing the difference can be abstracted w/o their value */
 type pairwiseKind =
   | Opening
   | Closing;
 
-/* For Quote tokens and the string loop to identify the closing quote */
 type quoteKind =
   | Double
   | Single;
 
-/* A token's value represented by its type constructor and the value type */
 type tokenValue =
   | Interpolation(interpolation)
   | Paren(pairwiseKind)
@@ -37,19 +34,14 @@ type tokenValue =
   | Dollar
   | EOF;
 
-/* A token carries a value, a start location, and an end location */
 type token = Token(tokenValue, (int, int), (int, int));
 
-/* Stream type for the LexerStream */
 type lexerStream = LazyStream.t(token);
 
-/* indicates whether the unquoted argument is allowed to contain more
-   parentheses and whitespaces or not */
 type argumentMode =
   | StringArg
   | ContentArg;
 
-/* Modes the lexer can be in, allowing encapsulated and specialised logic */
 type lexerMode =
   | MainLoop
   | StringEndLoop
@@ -60,7 +52,6 @@ type lexerMode =
   | UnquotedStringArgEndLoop
   | UnquotedContentArgLoop;
 
-/* Running state for tokenisation */
 type state = {
   /* location variable to keep track of (row, line) */
   mutable loc: (int, int),

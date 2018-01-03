@@ -1,18 +1,14 @@
-exception Error(string);
-
 type t('a) = {
   gen: [@bs] (unit => option('a)),
   mutable buffer: option('a)
 };
 
-/* create a new LazyStream from a iterator function */
-let from = (fn: [@bs] (unit => option('a))) : t('a) => {
+let from = fn => {
   gen: fn,
   buffer: None
 };
 
-/* retrieves the next value, possibly from the buffer */
-let next = (stream: t('a)) : option('a) => {
+let next = stream => {
   switch stream.buffer {
   | Some(value) =>
     stream.buffer = None;
@@ -21,8 +17,7 @@ let next = (stream: t('a)) : option('a) => {
   }
 };
 
-/* look at the next value, possibly buffering it to not lose it */
-let peek = (stream: t('a)) : option('a) => {
+let peek = stream => {
   switch stream.buffer {
   | Some(value) => Some(value)
   | None =>
@@ -32,13 +27,9 @@ let peek = (stream: t('a)) : option('a) => {
   }
 };
 
-/* throw away the next value */
-let junk = (stream: t('a)) => {
-  ignore(next(stream))
-};
+let junk = stream => ignore(next(stream));
 
-/* collects all emissions of a stream in an array */
-let toArray = (stream: t('a)) => {
+let toArray = stream => {
   let emissions = [||];
   let rec populate = () : array('a) => {
     switch (next(stream)) {
@@ -53,8 +44,7 @@ let toArray = (stream: t('a)) => {
   populate()
 };
 
-/* wraps a LazyStream and executes a sideeffect when a new value is being emitted */
-let withSideeffect = (sideeffect: [@bs] ('a) => unit, stream: t('a)) : t('a) => {
+let withSideeffect = (sideeffect, stream) => {
   from([@bs] () => {
     switch (next(stream)) {
     | Some(value) as x => {
