@@ -91,7 +91,7 @@ let printer = (s: Parser.parserStream) => {
       "[STRING_END]"
     }
     | AttributeSelectorStart(kind) =>
-      "[ATTRIBUTE_SELECTOR_START," ++ string_of_int(Parser.attributeSelectorKindToJs(kind)) ++ "]"
+      "[ATTRIBUTE_SELECTOR_START, " ++ string_of_int(Parser.attributeSelectorKindToJs(kind)) ++ "]"
     | AttributeSelectorEnd => "[ATTRIBUTE_SELECTOR_END]"
     | AttributeName(str) => "[ATTRIBUTE_NAME, '" ++ str ++ "']"
     | AttributeNameRef(_) => "[ATTRIBUTE_NAME_REF, ref]"

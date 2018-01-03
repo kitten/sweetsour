@@ -58,23 +58,25 @@ let prefixer = (s: Parser.parserStream) => {
   };
 
   /* get a prefix for a property and start the PrefixPropertyLoop */
-  let rec prefixProperty = (prop: string) : option(Parser.node) => {
+  let rec prefixProperty = (node: Parser.node, prop: string) : option(Parser.node) => {
     switch (prefixForProp(prop)) {
     | Some(prefixedProperties) => {
       state.mode = PrefixPropertyLoop;
       state.prefixedProperties = prefixedProperties;
       state.nodeBuffer = takeValueNodes();
-
       prefixPropertyLoop()
     }
-    | None => mainLoop()
+    | None => {
+      state.mode = MainLoop;
+      Some(node)
+    }
     }
   }
 
   /* pass through all nodes until a property is encountered */
   and mainLoop = () : option(Parser.node) => {
     switch (LazyStream.next(s)) {
-    | Some(Property(prop)) => prefixProperty(prop)
+    | Some(Property(prop) as node) => prefixProperty(node, prop)
     | Some(node) => Some(node)
     | None => None
     }
