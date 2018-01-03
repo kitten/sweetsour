@@ -9,20 +9,23 @@
 <br />
 
 This is a reference implementation of a CSS (-in-JS) parser, accepting both CSS
-strings and interpolations, and outputting ISTF, according to the current
+strings and interpolations, and outputting ISTF, according to the
 [ISTF specification](https://github.com/cssinjs/istf-spec).
 
 ## Status
 
 **Work in Progress: Not ready for any use!**
 
-Currently work is ongoing to build: **The parser (~60%)**
+Currently work is ongoing to build: **The parser (~80%)**
 
 - [ ] Parser
 - [ ] Transform tool with plugin support
 - [ ] Reference Babel plugin
 - [ ] Flattener for nested CSS (plugin)
 - [ ] Static prefixer (plugin)
+
+An up-to-date snapshot of the [ISTF specification](./docs/istf-spec-snapshot.md) is
+committed to this repo to avoid confusion while the spec is still being tweaked and expanded.
 
 ## Motivation
 
