@@ -331,7 +331,7 @@ describe("Parser", () => {
         Token(Word("div"), (1, 4), (1, 6)),
         Token(Brace(Opening), (1, 7), (1, 7)),
         Token(Brace(Closing), (1, 8), (1, 8))
-      |])) |> toThrowMessage("Unexpected token while parsing selectors");
+      |])) |> toThrowMessage("unexpected token while parsing selectors");
     });
 
     it("throws when no selector is following a combinator", () => {
@@ -861,7 +861,7 @@ describe("Parser", () => {
         |> toThrowMessage(
           /* NOTE: Message says *selectors* since parsing declarations is bailed when it doesn't match
              the appropriate starting pattern (word|interpolation THEN colon) */
-          "Unexpected token while parsing selectors"
+          "unexpected token while parsing selectors"
         );
     });
   });

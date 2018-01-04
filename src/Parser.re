@@ -48,7 +48,6 @@ type node =
   | Value(string)
   | CompoundValueStart
   | CompoundValueEnd
-  | Condition(string)
   | FunctionStart(string)
   | FunctionEnd
   | AnimationName(string)
@@ -65,7 +64,12 @@ type node =
   | AttributeOperator(string)
   | AttributeValue(string)
   | AttributeValueRef(interpolation)
+  | Condition(string)
   | ConditionRef(interpolation)
+  | CompoundConditionStart
+  | CompoundConditionEnd
+  | ConditionGroupStart
+  | ConditionGroupEnd
   | EOF;
 
 /* Stream type for the ParserStream */
@@ -74,7 +78,8 @@ type parserStream = LazyStream.t(node);
 /* Mode for parseString to determine what value nodes to add */
 type stringValueKind =
   | DeclarationValue
-  | AttributeSelectorValue;
+  | AttributeSelectorValue
+  | ConditionLiteral;
 
 /* Modes the parser can be in, allowing encapsulated and specialised logic */
 type parserMode =
@@ -152,6 +157,7 @@ let parser = (s: Lexer.lexerStream) => {
         LinkedList.add(switch (valueKind) {
         | DeclarationValue => Value(str)
         | AttributeSelectorValue => AttributeValue(str)
+        | ConditionLiteral => Condition(str)
         }, nodeBuffer);
 
         nodeBuffer
@@ -175,6 +181,7 @@ let parser = (s: Lexer.lexerStream) => {
         LinkedList.add(switch (valueKind) {
         | DeclarationValue => ValueRef(x)
         | AttributeSelectorValue => AttributeValueRef(x)
+        | ConditionLiteral => ConditionRef(x)
         }, addValueNode(str, nodeBuffer));
 
         parse("", true)
@@ -513,7 +520,7 @@ let parser = (s: Lexer.lexerStream) => {
       | Some(Brace(Opening)) when level === 0 => wrapBufferAsCompound(nodeBuffer, length)
 
       /* EOF or any other tokens are invalid here */
-      | _ => raise(ParserError("Unexpected token while parsing selectors", state.tokenRange))
+      | _ => raise(ParserError(unexpected_msg("token", "selectors"), state.tokenRange));
       }
     };
 
@@ -615,6 +622,138 @@ let parser = (s: Lexer.lexerStream) => {
     };
 
     parseValueLevel(LinkedList.create(), 0, 0);
+  };
+
+  /* parses all condition nodes recursively, including functions and compound conditions,
+     and returns the resulting node buffer */
+  let parseConditions = () : LinkedList.t(node) => {
+    /* wraps node buffer in compound condition nodes when more than one value was parsed (length > 1) */
+    let wrapBufferAsCompound = (nodeBuffer: LinkedList.t(node), length: int) => {
+      if (length === 1) {
+        nodeBuffer
+      } else {
+        LinkedList.unshift(CompoundConditionStart, nodeBuffer);
+        LinkedList.add(CompoundConditionEnd, nodeBuffer);
+        nodeBuffer
+      }
+    };
+
+    /* wraps node buffer in condition group nodes */
+    let wrapBufferAsGroup = (nodeBuffer: LinkedList.t(node)) => {
+      LinkedList.unshift(ConditionGroupStart, nodeBuffer);
+      LinkedList.add(ConditionGroupEnd, nodeBuffer);
+      nodeBuffer
+    };
+
+    let rec parseConditionLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) => {
+      let token = BufferStream.next(buffer);
+      let tokenValue = getTokenValue(token);
+      let { endLoc } = state.tokenRange;
+
+      switch (tokenValue) {
+      | Some(Word(word)) => {
+        switch (getTokenValueAndRange(BufferStream.peek(buffer))) {
+        /* parse a function on a deeper level */
+        | Some((Paren(Opening), { startLoc })) when !isSeparatedBySpaces(endLoc, startLoc) => {
+          BufferStream.junk(buffer);
+
+          /* parse the deeper level and wrap the result in a function */
+          let innerValues = wrapBufferAsFunction(
+            parseConditionLevel(LinkedList.create(), 0, level + 1),
+            word
+          );
+
+          /* continue parsing nodes on this level */
+          parseConditionLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
+        }
+        /* add condition and continue parsing */
+        | _ => {
+          LinkedList.add(Condition(word), nodeBuffer);
+          parseConditionLevel(nodeBuffer, length + 1, level)
+        }
+        }
+      }
+
+      | Some(Interpolation(x)) => {
+        LinkedList.add(ConditionRef(x), nodeBuffer);
+        parseConditionLevel(nodeBuffer, length + 1, level)
+      }
+
+      /* detect quotes and start parsing strings */
+      | Some(Quote(kind)) => {
+        let innerValues = parseString(ConditionLiteral, kind);
+        parseConditionLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
+      }
+
+      /* free strings belong to url() and can just be added as conditions on deeper levels */
+      | Some(Str(str)) when level > 0 => {
+        LinkedList.add(Condition(str), nodeBuffer);
+        parseConditionLevel(nodeBuffer, length + 1, level)
+      }
+
+      | Some(Comma) => {
+        let first = wrapBufferAsCompound(nodeBuffer, length);
+        let second = parseConditionLevel(LinkedList.create(), 0, level);
+        /* concatenate previous and the next nodes */
+        LinkedList.concat(first, second)
+      }
+
+      /* parse the deeper level as a group or declaration */
+      | Some(Paren(Opening)) => {
+        /* detect word/interpolation and colon */
+        switch (getTokenValue(BufferStream.next(buffer)), getTokenValue(BufferStream.peek(buffer))) {
+        | (Some(Word(_) | Interpolation(_)) as propertyToken, Some(Colon)) => {
+          let innerValues = LinkedList.create();
+
+          LinkedList.add(switch (propertyToken) {
+          | Some(Word(word)) => Property(word)
+          | Some(Interpolation(x)) => PropertyRef(x)
+          | _ => raise(ParserError(unexpected_msg("token", "at-rule group") ++ expected_msg("property"), state.tokenRange))
+          }, innerValues);
+
+          BufferStream.junk(buffer); /* discard colon */
+
+          LinkedList.add(switch (getTokenValue(BufferStream.next(buffer))) {
+          | Some(Word(word)) => Value(word)
+          | Some(Interpolation(x)) => ValueRef(x)
+          | _ => raise(ParserError(unexpected_msg("token", "at-rule group") ++ expected_msg("singular value"), state.tokenRange))
+          }, innerValues);
+
+          switch (getTokenValue(BufferStream.next(buffer))) {
+          | Some(Paren(Closing)) => ()
+          | _ => raise(ParserError(unexpected_msg("token", "at-rule group") ++ expected_msg("closing parenthesis"), state.tokenRange))
+          };
+
+          /* wrap inner values in a group and continue parsing nodes on this level */
+          parseConditionLevel(LinkedList.concat(nodeBuffer, wrapBufferAsGroup(innerValues)), length + 1, level)
+        }
+
+        | _ => {
+          /* parse the deeper level and wrap the result in a group */
+          let innerValues = wrapBufferAsGroup(parseConditionLevel(LinkedList.create(), 0, level + 1));
+
+          /* continue parsing nodes on this level */
+          parseConditionLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
+        }
+        }
+      }
+
+      /* when the parser is on a deeper level, a closed parenthesis indicates the end of a function */
+      | Some(Paren(Closing)) when level > 0 => wrapBufferAsCompound(nodeBuffer, length)
+
+      /* when encountering the end of the at-rule conditions, put back the last token and return the node buffer */
+      | Some(Brace(Opening))
+      | Some(Semicolon) when level === 0 => {
+        BufferStream.putOption(token, buffer);
+        nodeBuffer
+      }
+
+      /* EOF or any other tokens are invalid here */
+      | _ => raise(ParserError(unexpected_msg("token", "at-rule"), state.tokenRange));
+      }
+    };
+
+    parseConditionLevel(LinkedList.create(), 0, 0)
   };
 
   let propertyLoop = () : node => {

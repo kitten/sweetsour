@@ -99,6 +99,25 @@ let printer = (s: Parser.parserStream) => {
     | AttributeValue(str) => "[ATTRIBUTE_VALUE, '" ++ str ++ "']"
     | AttributeValueRef(_) => "[ATTRIBUTE_VALUE_REF, ref]"
     | ConditionRef(_) => "[CONDITION_REF, ref]"
+    | CompoundConditionStart => {
+      indentation := indentation^ + 1;
+      "[COMPOUND_CONDITION_START]"
+    }
+    | CompoundConditionEnd => {
+      indentation := indentation^ - 1;
+      indentImmediate := indentImmediate^ - 1;
+      "[COMPOUND_CONDITION_END]"
+    }
+    | ConditionGroupStart => {
+      indentation := indentation^ - 1;
+      indentImmediate := indentImmediate^ - 1;
+      "[CONDITION_GROUP_START]"
+    }
+    | ConditionGroupEnd => {
+      indentation := indentation^ - 1;
+      indentImmediate := indentImmediate^ - 1;
+      "[CONDITION_GROUP_END]"
+    }
     | EOF => "/eof"
     };
 
