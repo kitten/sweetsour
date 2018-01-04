@@ -701,12 +701,14 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* parse the deeper level as a group or declaration */
       | Some(Paren(Opening)) => {
+        let propertyToken = BufferStream.next(buffer);
+
         /* detect word/interpolation and colon */
-        switch (getTokenValue(BufferStream.next(buffer)), getTokenValue(BufferStream.peek(buffer))) {
-        | (Some(Word(_) | Interpolation(_)) as propertyToken, Some(Colon)) => {
+        switch (getTokenValue(propertyToken), getTokenValue(BufferStream.peek(buffer))) {
+        | (Some(Word(_) | Interpolation(_)) as propertyTokenValue, Some(Colon)) => {
           let innerValues = LinkedList.create();
 
-          LinkedList.add(switch (propertyToken) {
+          LinkedList.add(switch (propertyTokenValue) {
           | Some(Word(word)) => Property(word)
           | Some(Interpolation(x)) => PropertyRef(x)
           | _ => raise(ParserError(unexpected_msg("token", "at-rule group") ++ expected_msg("property"), state.tokenRange))
@@ -730,6 +732,9 @@ let parser = (s: Lexer.lexerStream) => {
         }
 
         | _ => {
+          /* put inspected potential property token back onto the buffer */
+          BufferStream.putOption(propertyToken, buffer);
+
           /* parse the deeper level and wrap the result in a group */
           let innerValues = wrapBufferAsGroup(parseConditionLevel(LinkedList.create(), 0, level + 1));
 
