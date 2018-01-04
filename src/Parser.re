@@ -91,6 +91,12 @@ let isSeparatedBySpaces = (endLoc: (int, int), startLoc: (int, int)) => {
   aRow !== bRow || aColumn + 1 < bColumn
 };
 
+let isSeparatedByRows = (endLoc: (int, int), startLoc: (int, int)) => {
+  let (aRow, _) = endLoc;
+  let (bRow, _) = startLoc;
+  aRow !== bRow
+};
+
 /* Running state for parsing */
 type state = {
   /* value to keep track of the last token's start and end location */
@@ -674,10 +680,17 @@ let parser = (s: Lexer.lexerStream) => {
   };
 
   let rec mainLoop = () : node => {
+    /* consume next token, parse its value, and save its end location */
     let firstToken = LazyStream.next(s);
-    let secondToken = LazyStream.peek(s);
+    let firstTokenValue = getTokenValue(firstToken);
+    let firstTokenEndLoc = state.tokenRange.endLoc;
 
-    switch (getTokenValue(firstToken), getTokenValue(secondToken)) {
+    /* peek at next token, parse its value, and save its start location */
+    let secondToken = LazyStream.peek(s);
+    let secondTokenValue = getTokenValue(secondToken);
+    let secondTokenStartLoc = state.tokenRange.startLoc;
+
+    switch (firstTokenValue, secondTokenValue) {
     /* skip over free semicolons */
     | (Some(Semicolon), _) => mainLoop()
 
@@ -690,6 +703,21 @@ let parser = (s: Lexer.lexerStream) => {
       BufferStream.bufferOption(secondToken, buffer);
 
       parseDeclOrSelector()
+    }
+
+    /* parse partial interpolation; (1)
+       parse a partial when interpolation is encountered before a closing brace or a semicolon
+       and after the last mainLoop */
+    | (Some(Interpolation(x)), Some(Brace(Closing)))
+    | (Some(Interpolation(x)), Some(Semicolon)) => {
+      PartialRef(x)
+    }
+
+    /* partial interpolation heuristic; (2)
+       parse a partial when interpolation is encountered before a selector and after the last mainLoop,
+       where the next token is on a separate line */
+    | (Some(Interpolation(x)), Some(_)) when isSeparatedByRows(firstTokenEndLoc, secondTokenStartLoc) => {
+      PartialRef(x)
     }
 
     /* parse at-rules */

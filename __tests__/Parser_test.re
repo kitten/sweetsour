@@ -751,4 +751,118 @@ describe("Parser", () => {
       |])) |> toThrowMessage("unexpected token while parsing values");
     });
   });
+
+  describe("Partial interpolations", () => {
+    open Expect;
+    open! Expect.Operators;
+
+    /* Parse: `${partial}\ncolor: papayawhip;` */
+    it("parses a partial preceding a declaration", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Interpolation(inter), (1, 1), (1, 1)),
+        Token(Word("color"), (2, 1), (2, 5)),
+        Token(Colon, (2, 6), (2, 6)),
+        Token(Word("papayawhip"), (2, 8), (2, 18)),
+        Token(Semicolon, (2, 19), (2, 19))
+      |])) == [|
+        PartialRef(inter),
+        Property("color"),
+        Value("papayawhip"),
+      |];
+    });
+
+    /* Parse: `${partial}\n.test {}` */
+    it("parses a partial preceding a selector", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Interpolation(inter), (1, 1), (1, 1)),
+        Token(Word(".test"), (2, 1), (2, 5)),
+        Token(Brace(Opening), (2, 7), (2, 7)),
+        Token(Brace(Closing), (2, 8), (2, 8))
+      |])) == [|
+        PartialRef(inter),
+        RuleStart(StyleRule),
+        Selector(".test"),
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `${partial}\n.test {}` */
+    it("parses a lone partial inside a rule block", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Word(".test"), (1, 1), (1, 5)),
+        Token(Brace(Opening), (1, 7), (1, 7)),
+        Token(Interpolation(inter), (1, 8), (1, 8)),
+        Token(Brace(Closing), (1, 9), (1, 9))
+      |])) == [|
+        RuleStart(StyleRule),
+        Selector(".test"),
+        PartialRef(inter),
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `color: blue;${partial}\ncolor: blue;` */
+    it("parses a partial inbetween declarations", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Word("color"), (1, 1), (1, 5)),
+        Token(Colon, (1, 6), (1, 6)),
+        Token(Word("blue"), (1, 8), (1, 11)),
+        Token(Semicolon, (1, 12), (1, 12)),
+        Token(Interpolation(inter), (1, 13), (1, 13)),
+        Token(Word("color"), (2, 1), (2, 5)),
+        Token(Colon, (2, 6), (2, 6)),
+        Token(Word("blue"), (2, 8), (2, 11)),
+        Token(Semicolon, (2, 12), (2, 12))
+      |])) == [|
+        Property("color"),
+        Value("blue"),
+        PartialRef(inter),
+        Property("color"),
+        Value("blue")
+      |];
+    });
+
+    /* Parse: `${partial};color: blue;` */
+    it("parses a partial followed by a semicolon and before a declaration on the same line", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Interpolation(inter), (1, 1), (1, 1)),
+        Token(Semicolon, (1, 2), (1, 2)),
+        Token(Word("color"), (1, 3), (1, 7)),
+        Token(Colon, (1, 8), (1, 8)),
+        Token(Word("blue"), (1, 10), (1, 13)),
+        Token(Semicolon, (1, 14), (1, 14))
+      |])) == [|
+        PartialRef(inter),
+        Property("color"),
+        Value("blue")
+      |];
+    });
+
+    it("throws when interpolation on the same line as a declaration are encountered", () => {
+      let inter = create_interpolation(1);
+
+      expect(() => parse([|
+        Token(Interpolation(inter), (1, 1), (1, 1)),
+        Token(Word("color"), (1, 2), (1, 6)),
+        Token(Colon, (1, 7), (1, 7)),
+        Token(Word("green"), (1, 9), (1, 13)),
+        Token(Semicolon, (1, 14), (1, 14))
+      |]))
+        |> toThrowMessage(
+          /* NOTE: Message says *selectors* since parsing declarations is bailed when it doesn't match
+             the appropriate starting pattern (word|interpolation THEN colon) */
+          "Unexpected token while parsing selectors"
+        );
+    });
+  });
 });
