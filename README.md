@@ -16,9 +16,7 @@ strings and interpolations, and outputting ISTF, according to the
 
 **Work in Progress: Not ready for any use!**
 
-Currently work is ongoing to build: **The parser (~80%)**
-
-- [ ] Parser
+- [x] Parser
 - [ ] Transform tool with plugin support
 - [ ] Reference Babel plugin
 - [ ] Flattener for nested CSS (plugin)
