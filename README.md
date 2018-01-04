@@ -27,6 +27,8 @@ Currently work is ongoing to build: **The parser (~80%)**
 An up-to-date snapshot of the [ISTF specification](./docs/istf-spec-snapshot.md) is
 committed to this repo to avoid confusion while the spec is still being tweaked and expanded.
 
+More information on the progress of the parser can be found [here](./docs/STATUS.md).
+
 ## Motivation
 
 The project aims to build a common and reusuable pipeline for processing CSS, including
