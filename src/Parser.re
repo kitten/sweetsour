@@ -747,11 +747,8 @@ let parser = (s: Lexer.lexerStream) => {
       /* when the parser is on a deeper level, a closed parenthesis indicates the end of a function */
       | Some(Paren(Closing)) when level > 0 => wrapBufferAsCompound(nodeBuffer, length)
 
-      /* when encountering the end of the at-rule conditions, put back the last token and return the node buffer */
-      | Some(Brace(Opening)) when level === 0 => {
-        BufferStream.putOption(token, buffer);
-        wrapBufferAsCompound(nodeBuffer, length)
-      }
+      /* when encountering the end of the at-rule conditions return the node buffer */
+      | Some(Brace(Opening)) when level === 0 => wrapBufferAsCompound(nodeBuffer, length)
 
       /* EOF or any other tokens are invalid here */
       | _ => raise(ParserError(unexpected_msg("token", "at-rule"), state.tokenRange));
