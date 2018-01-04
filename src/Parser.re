@@ -86,7 +86,8 @@ type parserMode =
   | MainLoop
   | PropertyLoop
   | BufferLoop
-  | SelectorLoop;
+  | SelectorLoop
+  | ConditionLoop;
 
 /* compares a last token's end location with the next's start location;
    determines whether they're separated */
@@ -742,8 +743,7 @@ let parser = (s: Lexer.lexerStream) => {
       | Some(Paren(Closing)) when level > 0 => wrapBufferAsCompound(nodeBuffer, length)
 
       /* when encountering the end of the at-rule conditions, put back the last token and return the node buffer */
-      | Some(Brace(Opening))
-      | Some(Semicolon) when level === 0 => {
+      | Some(Brace(Opening)) when level === 0 => {
         BufferStream.putOption(token, buffer);
         nodeBuffer
       }
@@ -860,10 +860,25 @@ let parser = (s: Lexer.lexerStream) => {
     }
 
     /* parse at-rules */
-    | (Some(AtWord(_)), _) => {
-      /* buffer first token for future at-rule parsing */
-      BufferStream.bufferOption(firstToken, buffer);
-      RuleEnd /* TODO: parse at-rule */
+    | (Some(AtWord(atWord)), _) => {
+      state.ruleLevel = state.ruleLevel + 1;
+      state.mode = ConditionLoop;
+
+      /* emit the starting node for the at-rule */
+      RuleStart(
+        switch (atWord) {
+        | "@media" => MediaRule
+        | "@font-face" => FontFaceRule
+        | "@supports" => SupportsRule
+        | "@keyframes" => KeyframesRule
+        | "@counter-style" => CounterStyleRule
+        | "@document" => DocumentRule
+        | "@viewport" => ViewportRule
+        | _ => {
+          let msg = "'" ++ atWord ++ "' is currently unsupported.";
+          raise(ParserError(unexpected_msg("at-word", "") ++ msg, state.tokenRange))
+        }
+      })
     }
 
     /* decrease ruleLevel when closing curly brace is encountered */
@@ -913,6 +928,12 @@ let parser = (s: Lexer.lexerStream) => {
     bufferLoop()
   };
 
+  let conditionLoop = () : node => {
+    state.nodeBuffer = parseConditions();
+    state.mode = BufferLoop;
+    bufferLoop()
+  };
+
   let next: [@bs] (unit => option(node)) = [@bs] (() => {
     let node =
       switch state.mode {
@@ -920,6 +941,7 @@ let parser = (s: Lexer.lexerStream) => {
       | PropertyLoop => propertyLoop()
       | BufferLoop => bufferLoop()
       | SelectorLoop => selectorLoop()
+      | ConditionLoop => conditionLoop()
       };
 
     switch node {
