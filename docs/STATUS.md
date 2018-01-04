@@ -53,4 +53,4 @@ into ISTF:
   - [x] Selector interpolations
   - [x] Value String interpolations
   - [x] Attribute Selector interpolations
-  - [ ] Partial interpolation
+  - [x] Partial interpolation (heuristic)
