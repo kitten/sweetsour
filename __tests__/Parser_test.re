@@ -331,7 +331,7 @@ describe("Parser", () => {
         Token(Word("div"), (1, 4), (1, 6)),
         Token(Brace(Opening), (1, 7), (1, 7)),
         Token(Brace(Closing), (1, 8), (1, 8))
-      |])) |> toThrowMessage("Unexpected token while parsing selectors");
+      |])) |> toThrowMessage("unexpected token while parsing selectors");
     });
 
     it("throws when no selector is following a combinator", () => {
@@ -861,8 +861,152 @@ describe("Parser", () => {
         |> toThrowMessage(
           /* NOTE: Message says *selectors* since parsing declarations is bailed when it doesn't match
              the appropriate starting pattern (word|interpolation THEN colon) */
-          "Unexpected token while parsing selectors"
+          "unexpected token while parsing selectors"
         );
+    });
+  });
+
+  describe("At-Rules", () => {
+    open Expect;
+    open! Expect.Operators;
+
+    /* Parse: `@media all {}` */
+    it("parses plain words as conditions", () => {
+      expect(parse([|
+        Token(AtWord("@media"), (1, 1), (1, 6)),
+        Token(Word("all"), (1, 8), (1, 10)),
+        Token(Brace(Opening), (1, 12), (1, 12)),
+        Token(Brace(Closing), (1, 13), (1, 13))
+      |])) == [|
+        RuleStart(MediaRule),
+        Condition("all"),
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `@media screen and (min-width: 900px) {}` */
+    it("parses media queries with declarations", () => {
+      expect(parse([|
+        Token(AtWord("@media"), (1, 1), (1, 6)),
+        Token(Word("screen"), (1, 8), (1, 13)),
+        Token(Word("and"), (1, 15), (1, 17)),
+        Token(Paren(Opening), (1, 19), (1, 19)),
+        Token(Word("min-width"), (1, 20), (1, 28)),
+        Token(Colon, (1, 29), (1, 29)),
+        Token(Word("900px"), (1, 31), (1, 35)),
+        Token(Paren(Closing), (1, 36), (1, 36)),
+        Token(Brace(Opening), (1, 38), (1, 38)),
+        Token(Brace(Closing), (1, 39), (1, 39))
+      |])) == [|
+        RuleStart(MediaRule),
+        CompoundConditionStart,
+        Condition("screen"),
+        Condition("and"),
+        ConditionGroupStart,
+        Property("min-width"),
+        Value("900px"),
+        ConditionGroupEnd,
+        CompoundConditionEnd,
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `@media screen, print {}` */
+    it("parses compounded media queries", () => {
+      expect(parse([|
+        Token(AtWord("@media"), (1, 1), (1, 6)),
+        Token(Word("screen"), (1, 8), (1, 13)),
+        Token(Comma, (1, 14), (1, 15)),
+        Token(Word("print"), (1, 17), (1, 21)),
+        Token(Brace(Opening), (1, 23), (1, 23)),
+        Token(Brace(Closing), (1, 24), (1, 24))
+      |])) == [|
+        RuleStart(MediaRule),
+        Condition("screen"),
+        Condition("print"),
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `@supports not (not (test)) {}` */
+    it("parses nested groups in feature queries (@supports)", () => {
+      expect(parse([|
+        Token(AtWord("@supports"), (1, 1), (1, 6)),
+        Token(Word("not"), (1, 8), (1, 10)),
+        Token(Paren(Opening), (1, 12), (1, 12)),
+        Token(Word("not"), (1, 13), (1, 15)),
+        Token(Paren(Opening), (1, 17), (1, 17)),
+        Token(Word("test"), (1, 18), (1, 21)),
+        Token(Paren(Closing), (1, 22), (1, 22)),
+        Token(Paren(Closing), (1, 23), (1, 23)),
+        Token(Brace(Opening), (1, 24), (1, 24)),
+        Token(Brace(Closing), (1, 25), (1, 25))
+      |])) == [|
+        RuleStart(SupportsRule),
+        CompoundConditionStart,
+        Condition("not"),
+        ConditionGroupStart,
+        CompoundConditionStart,
+        Condition("not"),
+        ConditionGroupStart,
+        Condition("test"),
+        ConditionGroupEnd,
+        CompoundConditionEnd,
+        ConditionGroupEnd,
+        CompoundConditionEnd,
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `@supports not (not (test)) {}` */
+    it("parses nested groups in feature queries (@supports)", () => {
+      expect(parse([|
+        Token(AtWord("@supports"), (1, 1), (1, 6)),
+        Token(Word("not"), (1, 8), (1, 10)),
+        Token(Paren(Opening), (1, 12), (1, 12)),
+        Token(Word("not"), (1, 13), (1, 15)),
+        Token(Paren(Opening), (1, 17), (1, 17)),
+        Token(Word("test"), (1, 18), (1, 21)),
+        Token(Paren(Closing), (1, 22), (1, 22)),
+        Token(Paren(Closing), (1, 23), (1, 23)),
+        Token(Brace(Opening), (1, 24), (1, 24)),
+        Token(Brace(Closing), (1, 25), (1, 25))
+      |])) == [|
+        RuleStart(SupportsRule),
+        CompoundConditionStart,
+        Condition("not"),
+        ConditionGroupStart,
+        CompoundConditionStart,
+        Condition("not"),
+        ConditionGroupStart,
+        Condition("test"),
+        ConditionGroupEnd,
+        CompoundConditionEnd,
+        ConditionGroupEnd,
+        CompoundConditionEnd,
+        RuleEnd
+      |];
+    });
+
+    /* Parse: `@document url("test") {}` */
+    it("parses document rules containing a url function", () => {
+      expect(parse([|
+        Token(AtWord("@document"), (1, 1), (1, 6)),
+        Token(Word("url"), (1, 8), (1, 10)),
+        Token(Paren(Opening), (1, 11), (1, 11)),
+        Token(Quote(Double), (1, 12), (1, 12)),
+        Token(Str("test"), (1, 13), (1, 16)),
+        Token(Quote(Double), (1, 17), (1, 17)),
+        Token(Paren(Closing), (1, 18), (1, 18)),
+        Token(Brace(Opening), (1, 20), (1, 20)),
+        Token(Brace(Closing), (1, 21), (1, 21))
+      |])) == [|
+        RuleStart(DocumentRule),
+        FunctionStart("url"),
+        Condition("\"test\""),
+        FunctionEnd,
+        RuleEnd
+      |];
     });
   });
 });

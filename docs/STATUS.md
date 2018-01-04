@@ -5,26 +5,28 @@
 The following CSS features of the spec are implemented and parsed correctly
 into ISTF:
 
+> ~struck through items~ will be **temporarily unsupported** for the next release
+
 - [x] Rules
   - [x] Style Rules
 - [ ] At-Rules
-  - [ ] At-Rule Statements
-    - [ ] Charset Rules
-    - [ ] Import Rules
-    - [ ] Namespace Rules
-  - [ ] Nested, Conditional At-Rules
-    - [ ] Media Rules
-    - [ ] Supports Rules
-    - [ ] Document Rules
-  - [ ] Regular, Nested At-Rules
-    - [ ] FontFace Rules
-    - [ ] Page Rules
-    - [ ] Keyframe(s) Rules
-    - [ ] Margin Rules
-    - [ ] Counter Style Rules
-    - [ ] Font Feature Value Rules
-    - [ ] Viewport Rules
-    - [ ] Region Style Rules
+  - [ ] ~At-Rule Statements~
+    - [ ] ~Charset Rules~
+    - [ ] ~Import Rules~
+    - [ ] ~Namespace Rules~
+  - [x] Nested, Conditional At-Rules
+    - [x] Media Rules
+    - [x] Supports Rules
+    - [x] Document Rules
+  - [x] Regular, Nested At-Rules
+    - [x] FontFace Rules
+    - [ ] ~Page Rules~
+    - [x] Keyframe(s) Rules
+    - [ ] ~Margin Rules~
+    - [x] Counter Style Rules
+    - [ ] ~Font Feature Value Rules~
+    - [x] Viewport Rules
+    - [ ] ~Region Style Rules~
 - [x] Selectors
   - [x] Parent Selectors
   - [x] Universal Selectors

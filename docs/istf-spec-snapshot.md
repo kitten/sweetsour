@@ -2,7 +2,7 @@
 
 > This is a snapshot of the ISTF specification
 >
-> Currently it's **ahead of master** as of the 3rd of January 2018
+> Currently it's **ahead of master** as of the 4th of January 2018
 
 The biggest issue at scale we currently have with all CSSinJS implementations is that they are not sharable without the runtime.
 
@@ -75,6 +75,10 @@ const ATTRIBUTE_OPERATOR = 31
 const ATTRIBUTE_VALUE = 32
 const ATTRIBUTE_VALUE_REF = 33
 const CONDITION_REF = 34
+const COMPOUND_CONDITION_START = 35
+const COMPOUND_CONDITION_END = 36
+const CONDITION_GROUP_START = 37
+const CONDITION_GROUP_END = 38
 ```
 
 #### Rule start
@@ -257,13 +261,57 @@ Functional value notation e.g.: `color: rgb(100, 200, 50)` =>
 [FUNCTION_END]
 ```
 
-### Condition
+#### Compound value
+
+`[COMPOUND_VALUE_START], [VALUE, <value>]+, [COMPOUND_VALUE_END]`
+
+A value that consists of multiple space separated simple values: e.g.: `10px 20px` =>
+
+```js
+[COMPOUND_VALUE_START],
+  [VALUE, '10px'],
+  [VALUE, '20px'],
+[COMPOUND_VALUE_END]
+```
+
+#### Simple condition
 
 `[CONDITION, <condition>]`
 
 Marker `CONDITION` specifies a condition for conditional rules.
 
 E.g. `@media all` => `[RULE_START, 4], [CONDITION, 'all']`
+
+#### Condition list
+
+`[CONDITION, 'all']+`
+
+A comma separated list of simple conditions e.g.: `screen, print` => `[CONDITION, 'screen'], [CONDITION, 'print']`.
+
+#### Compound condition
+
+`[COMPOUND_CONDITION_START], [CONDITION, <value>]+, [COMPOUND_CONDITION_END]`
+
+A value that consists of multiple space separated simple values: e.g.: `only screen` =>
+
+```js
+[COMPOUND_CONDITION_START],
+  [CONDITION, 'only'],
+  [CONDITION, 'screen'],
+[COMPOUND_CONDITION_END]
+```
+
+#### Condition group
+
+`[CONDITION_GROUP_START], [CONDITION, <value>]+, [CONDITION_GROUP_END]`
+
+A value that consists of more conditions inside of parentheses: e.g.: `(screen)` =>
+
+```js
+[CONDITION_GROUP_START],
+  [CONDITION, 'screen'],
+[CONDITION_GROUP_END]
+```
 
 #### Value reference
 
@@ -312,6 +360,17 @@ Compound selector: `.foo.bar` =>
   [SELECTOR, '.foo'],
   [SELECTOR_REF, () => '.bar'],
 [COMPOUND_SELECTOR_END]
+```
+
+#### Condition reference
+
+`[CONDITION_REF, ref]`
+
+Variable `ref` is a string or a function which returns a string.
+
+```js
+[CONDITION, 'screen'],
+[CONDITION_REF, () => 'print']
 ```
 
 #### Partial reference
