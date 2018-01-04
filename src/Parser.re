@@ -877,7 +877,7 @@ let parser = (s: Lexer.lexerStream) => {
         | "@document" => DocumentRule
         | "@viewport" => ViewportRule
         | _ => {
-          let msg = "'" ++ atWord ++ "' is currently unsupported.";
+          let msg = "'" ++ atWord ++ "' is unsupported.";
           raise(ParserError(unexpected_msg("at-word", "") ++ msg, state.tokenRange))
         }
       })
