@@ -705,17 +705,18 @@ let parser = (s: Lexer.lexerStream) => {
       parseDeclOrSelector()
     }
 
-    /* partial interpolation heuristic; (1)
-       parse a partial when interpolation is encountered before a selector and after the last mainLoop,
-       where the next token is on a separate line */
-    | (Some(Interpolation(x)), Some(_)) when isSeparatedByRows(firstTokenEndLoc, secondTokenStartLoc) => {
+    /* parse partial interpolation; (1)
+       parse a partial when interpolation is encountered before a closing brace or a semicolon
+       and after the last mainLoop */
+    | (Some(Interpolation(x)), Some(Brace(Closing)))
+    | (Some(Interpolation(x)), Some(Semicolon)) => {
       PartialRef(x)
     }
 
-    /* parse partial interpolation; (2)
-       parse a partial when interpolation is encountered before a closing brace and after the last
-       mainLoop */
-    | (Some(Interpolation(x)), Some(Brace(Closing))) => {
+    /* partial interpolation heuristic; (2)
+       parse a partial when interpolation is encountered before a selector and after the last mainLoop,
+       where the next token is on a separate line */
+    | (Some(Interpolation(x)), Some(_)) when isSeparatedByRows(firstTokenEndLoc, secondTokenStartLoc) => {
       PartialRef(x)
     }
 

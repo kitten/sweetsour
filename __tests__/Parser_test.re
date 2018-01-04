@@ -830,6 +830,24 @@ describe("Parser", () => {
       |];
     });
 
+    /* Parse: `${partial};color: blue;` */
+    it("parses a partial followed by a semicolon and before a declaration on the same line", () => {
+      let inter = create_interpolation(1);
+
+      expect(parse([|
+        Token(Interpolation(inter), (1, 1), (1, 1)),
+        Token(Semicolon, (1, 2), (1, 2)),
+        Token(Word("color"), (1, 3), (1, 7)),
+        Token(Colon, (1, 8), (1, 8)),
+        Token(Word("blue"), (1, 10), (1, 13)),
+        Token(Semicolon, (1, 14), (1, 14))
+      |])) == [|
+        PartialRef(inter),
+        Property("color"),
+        Value("blue")
+      |];
+    });
+
     it("throws when interpolation on the same line as a declaration are encountered", () => {
       let inter = create_interpolation(1);
 
