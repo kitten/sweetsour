@@ -1,3 +1,5 @@
+open IstfNode;
+
 let prefixForProp = (prop: string) : option(list(string)) => {
   switch (PrefixProperty.prefixForProperty(prop)) {
   | Webkit => Some(["-webkit-" ++ prop, prop])
@@ -23,9 +25,9 @@ type state = {
   /* prefixed properties for the current declaration that is being prefixed */
   mutable prefixedProperties: list(string),
   /* current buffer of nodes */
-  mutable nodeBuffer: LinkedList.t(Parser.node),
+  mutable nodeBuffer: LinkedList.t(node),
   /* current pointer to a linked list node */
-  mutable bufferPointer: option(LinkedList.elementNode(Parser.node))
+  mutable bufferPointer: option(LinkedList.elementNode(node))
 };
 
 let prefixer = (s: Parser.parserStream) => {
@@ -38,11 +40,11 @@ let prefixer = (s: Parser.parserStream) => {
 
   /* collect all value nodes of the current declaration */
   let takeValueNodes = () => {
-    let rec explode = (valueNodes: LinkedList.t(Parser.node)) => {
+    let rec explode = (valueNodes: LinkedList.t(node)) => {
       switch (LazyStream.peek(s)) {
-        | Some(Property(_))
-        | Some(PropertyRef(_))
-        | Some(RuleEnd) => valueNodes
+        | Some(StringNode(Property, _))
+        | Some(RefNode(PropertyRef, _))
+        | Some(Node(RuleEnd)) => valueNodes
 
         | Some(node) => {
           LazyStream.junk(s);
@@ -58,7 +60,7 @@ let prefixer = (s: Parser.parserStream) => {
   };
 
   /* get a prefix for a property and start the PrefixPropertyLoop */
-  let rec prefixProperty = (node: Parser.node, prop: string) : option(Parser.node) => {
+  let rec prefixProperty = (node: node, prop: string) : option(node) => {
     switch (prefixForProp(prop)) {
     | Some(prefixedProperties) => {
       state.mode = PrefixPropertyLoop;
@@ -74,23 +76,22 @@ let prefixer = (s: Parser.parserStream) => {
   }
 
   /* pass through all nodes until a property is encountered */
-  and mainLoop = () : option(Parser.node) => {
+  and mainLoop = () : option(node) => {
     switch (LazyStream.next(s)) {
-    | Some(Property(prop) as node) => prefixProperty(node, prop)
-    | Some(node) => Some(node)
-    | None => None
+    | Some(StringNode(Property, prop) as node) => prefixProperty(node, prop)
+    | x => x
     }
   }
 
   /* output the next prefixed property and start the buffer loop or switch back to the MainLoop */
-  and prefixPropertyLoop = () : option(Parser.node) => {
+  and prefixPropertyLoop = () : option(node) => {
     switch (state.prefixedProperties) {
       | [prop, ...rest] => {
         state.prefixedProperties = rest;
         state.bufferPointer = state.nodeBuffer.head;
         state.mode = BufferLoop;
 
-        Some(Property(prop))
+        Some(StringNode(Property, prop))
       }
       | [] => {
         state.mode = MainLoop;
@@ -99,7 +100,7 @@ let prefixer = (s: Parser.parserStream) => {
     }
   };
 
-  let bufferLoop = () : option(Parser.node) => {
+  let bufferLoop = () : option(node) => {
     switch (state.bufferPointer) {
     | Some(element) => {
       state.bufferPointer = element.next;
@@ -109,7 +110,7 @@ let prefixer = (s: Parser.parserStream) => {
     }
   };
 
-  let next: [@bs] (unit => option(Parser.node)) = [@bs] (() => {
+  let next: [@bs] (unit => option(node)) = [@bs] (() => {
     switch state.mode {
     | MainLoop => mainLoop()
     | PrefixPropertyLoop => prefixPropertyLoop()

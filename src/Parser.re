@@ -1,76 +1,8 @@
 open Common;
+open IstfNode;
 
 /* an error raised by the parser contains a message and a line number */
 exception ParserError(string, locationRange);
-
-/* For RuleStart kinds */
-[@bs.deriving jsConverter]
-type ruleKind =
-  [@bs.as 1] | StyleRule /* CSSOM */
-  [@bs.as 2] | CharsetRule /* CSSOM */
-  [@bs.as 3] | ImportRule /* CSSOM */
-  [@bs.as 4] | MediaRule /* CSSOM */
-  [@bs.as 5] | FontFaceRule /* CSSOM */
-  [@bs.as 6] | PageRule /* CSSOM */
-  [@bs.as 7] | KeyframesRule /* CSS 3 Animations */
-  [@bs.as 8] | KeyframeRule /* CSS 3 Animations */
-  [@bs.as 9] | MarginRule /* CSSOM */
-  [@bs.as 10] | NamespaceRule /* CSSOM */
-  [@bs.as 11] | CounterStyleRule /* CSS 3 Lists */
-  [@bs.as 12] | SupportsRule /* CSS 3 Conditional */
-  [@bs.as 13] | DocumentRule /* CSS 3 Conditional */
-  [@bs.as 14] | FontFeatureValuesRule /* CSS 3 Fonts */
-  [@bs.as 15] | ViewportRule /* CSS Device Adapt */
-  [@bs.as 16] | RegionStyleRule; /* Proposed for CSS 3 Regions */
-
-/* For attribute selector kinds */
-[@bs.deriving jsConverter]
-type attributeSelectorKind =
-  [@bs.as 1] | CaseSensitive
-  [@bs.as 2] | CaseInsensitive;
-
-/* A node is represented by its (ISTF) type and potentially a value */
-type node =
-  | RuleStart(ruleKind)
-  | RuleEnd
-  | RuleName(string)
-  | Selector(string)
-  | ParentSelector
-  | UniversalSelector
-  | CompoundSelectorStart
-  | CompoundSelectorEnd
-  | SpaceCombinator
-  | DoubledChildCombinator
-  | ChildCombinator
-  | NextSiblingCombinator
-  | SubsequentSiblingCombinator
-  | Property(string)
-  | Value(string)
-  | CompoundValueStart
-  | CompoundValueEnd
-  | FunctionStart(string)
-  | FunctionEnd
-  | AnimationName(string)
-  | SelectorRef(interpolation)
-  | PropertyRef(interpolation)
-  | ValueRef(interpolation)
-  | PartialRef(interpolation)
-  | StringStart(string)
-  | StringEnd
-  | AttributeSelectorStart(attributeSelectorKind)
-  | AttributeSelectorEnd
-  | AttributeName(string)
-  | AttributeNameRef(interpolation)
-  | AttributeOperator(string)
-  | AttributeValue(string)
-  | AttributeValueRef(interpolation)
-  | Condition(string)
-  | ConditionRef(interpolation)
-  | CompoundConditionStart
-  | CompoundConditionEnd
-  | ConditionGroupStart
-  | ConditionGroupEnd
-  | EOF;
 
 /* Stream type for the ParserStream */
 type parserStream = LazyStream.t(node);
@@ -115,7 +47,7 @@ type state = {
   mutable mode: parserMode
 };
 
-let parser = (s: Lexer.lexerStream) => {
+let parser = (s: Lexer.lexerStream) : parserStream => {
   let state = {
     tokenRange: { startLoc: (1, 0), endLoc: (1, 0) },
     ruleLevel: 0,
@@ -155,11 +87,11 @@ let parser = (s: Lexer.lexerStream) => {
       switch (str) {
       | "" => nodeBuffer
       | _ => {
-        LinkedList.add(switch (valueKind) {
-        | DeclarationValue => Value(str)
-        | AttributeSelectorValue => AttributeValue(str)
-        | ConditionLiteral => Condition(str)
-        }, nodeBuffer);
+        LinkedList.add(StringNode(switch (valueKind) {
+        | DeclarationValue => Value
+        | AttributeSelectorValue => AttributeValue
+        | ConditionLiteral => Condition
+        }, str), nodeBuffer);
 
         nodeBuffer
       }
@@ -179,11 +111,11 @@ let parser = (s: Lexer.lexerStream) => {
       /* interpolations are added as "(Attribute)ValueRef"s and containsInterpolation is set to true */
       | Some(Interpolation(x)) => {
         /* add the Value of the past str string and then add the ValueRef/AttributeValueRef */
-        LinkedList.add(switch (valueKind) {
-        | DeclarationValue => ValueRef(x)
-        | AttributeSelectorValue => AttributeValueRef(x)
-        | ConditionLiteral => ConditionRef(x)
-        }, addValueNode(str, nodeBuffer));
+        LinkedList.add(RefNode(switch (valueKind) {
+        | DeclarationValue => ValueRef
+        | AttributeSelectorValue => AttributeValueRef
+        | ConditionLiteral => ConditionRef
+        }, x), addValueNode(str, nodeBuffer));
 
         parse("", true)
       }
@@ -192,8 +124,8 @@ let parser = (s: Lexer.lexerStream) => {
       | Some(Quote(endKind)) when endKind === quoteKind => {
         /* if interpolations or more than one string were parsed, wrap the nodes in a compound */
         if (nodeBuffer.size > 1 || containsInterpolation) {
-          LinkedList.unshift(StringStart(quoteStr), addValueNode(str, nodeBuffer));
-          LinkedList.add(StringEnd, nodeBuffer);
+          LinkedList.unshift(StringNode(StringStart, quoteStr), addValueNode(str, nodeBuffer));
+          LinkedList.add(Node(StringEnd), nodeBuffer);
           nodeBuffer
         } else {
           /* otherwise just add a value node containing the string */
@@ -214,16 +146,16 @@ let parser = (s: Lexer.lexerStream) => {
 
   /* wraps node buffer in function nodes using the passed function name (fnName) */
   let wrapBufferAsFunction = (nodeBuffer: LinkedList.t(node), fnName: string) => {
-    LinkedList.unshift(FunctionStart(fnName), nodeBuffer);
-    LinkedList.add(FunctionEnd, nodeBuffer);
+    LinkedList.unshift(StringNode(FunctionStart, fnName), nodeBuffer);
+    LinkedList.add(Node(FunctionEnd), nodeBuffer);
     nodeBuffer
   };
 
   /* parses an attribute selector and returns the resulting node buffer */
   let parseAttributeSelector = () : LinkedList.t(node) => {
     let wrapNodes = (kind: attributeSelectorKind, nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) => {
-      LinkedList.unshift(AttributeSelectorStart(kind), nodeBuffer);
-      LinkedList.add(AttributeSelectorEnd, nodeBuffer);
+      LinkedList.unshift(AttributeKindNode(AttributeSelectorStart, kind), nodeBuffer);
+      LinkedList.add(Node(AttributeSelectorEnd), nodeBuffer);
       nodeBuffer
     };
 
@@ -255,7 +187,7 @@ let parser = (s: Lexer.lexerStream) => {
     let parseAttributeOperator = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) =>
       switch (getTokenValue(BufferStream.next(buffer))) {
       | Some(Equal) => {
-        LinkedList.add(AttributeOperator("="), nodeBuffer);
+        LinkedList.add(StringNode(AttributeOperator, "="), nodeBuffer);
         parseAttributeValue(nodeBuffer)
       }
 
@@ -265,7 +197,7 @@ let parser = (s: Lexer.lexerStream) => {
         | _ => raise(ParserError(unexpected_msg("token", "attribute operator") ++ expected_msg("equal sign"), state.tokenRange))
         };
 
-        let node = AttributeOperator(switch (op) {
+        let node = StringNode(AttributeOperator, switch (op) {
         | Tilde => "~="
         | Pipe => "|="
         | Caret => "^="
@@ -284,8 +216,8 @@ let parser = (s: Lexer.lexerStream) => {
 
     let parseAttributeName = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) => {
       switch (getTokenValue(BufferStream.next(buffer))) {
-      | Some(Word(word)) => LinkedList.add(AttributeName(word), nodeBuffer)
-      | Some(Interpolation(x)) => LinkedList.add(AttributeNameRef(x), nodeBuffer)
+      | Some(Word(word)) => LinkedList.add(StringNode(AttributeName, word), nodeBuffer)
+      | Some(Interpolation(x)) => LinkedList.add(RefNode(AttributeNameRef, x), nodeBuffer)
       | _ => raise(ParserError(unexpected_msg("token", "attribute selector") ++ expected_msg("attribute name"), state.tokenRange))
       };
 
@@ -303,8 +235,8 @@ let parser = (s: Lexer.lexerStream) => {
       if (length === 1) {
         nodeBuffer
       } else {
-        LinkedList.unshift(CompoundSelectorStart, nodeBuffer);
-        LinkedList.add(CompoundSelectorEnd, nodeBuffer);
+        LinkedList.unshift(Node(CompoundSelectorStart), nodeBuffer);
+        LinkedList.add(Node(CompoundSelectorEnd), nodeBuffer);
         nodeBuffer
       }
     };
@@ -339,9 +271,9 @@ let parser = (s: Lexer.lexerStream) => {
         switch(getTokenValue(BufferStream.peek(buffer))) {
         | Some(Arrow) => {
           BufferStream.junk(buffer);
-          LinkedList.add(DoubledChildCombinator, nodeBuffer);
+          LinkedList.add(Node(DoubledChildCombinator), nodeBuffer);
         }
-        | _ => LinkedList.add(ChildCombinator, nodeBuffer);
+        | _ => LinkedList.add(Node(ChildCombinator), nodeBuffer);
         };
 
         checkCombinatorValidity();
@@ -350,14 +282,14 @@ let parser = (s: Lexer.lexerStream) => {
 
       | Some((Plus, _)) => {
         BufferStream.junk(buffer);
-        LinkedList.add(NextSiblingCombinator, nodeBuffer);
+        LinkedList.add(Node(NextSiblingCombinator), nodeBuffer);
         checkCombinatorValidity();
         1
       }
 
       | Some((Tilde, _)) => {
         BufferStream.junk(buffer);
-        LinkedList.add(SubsequentSiblingCombinator, nodeBuffer);
+        LinkedList.add(Node(SubsequentSiblingCombinator), nodeBuffer);
         checkCombinatorValidity();
         1
       }
@@ -371,7 +303,7 @@ let parser = (s: Lexer.lexerStream) => {
       /* all other tokens might require a space combinator, e.g. interpolation, word... */
       | Some((_, tokenRange)) => {
         if (isSeparatedBySpaces(lastTokenEndLoc, tokenRange.startLoc)) {
-          LinkedList.add(SpaceCombinator, nodeBuffer);
+          LinkedList.add(Node(SpaceCombinator), nodeBuffer);
           1
         } else {
           0
@@ -407,7 +339,7 @@ let parser = (s: Lexer.lexerStream) => {
         }
 
         | _ => {
-          LinkedList.add(Selector(":" ++ word), nodeBuffer);
+          LinkedList.add(StringNode(Selector, ":" ++ word), nodeBuffer);
 
           /* set tokenRange to last token (before peek) */
           state.tokenRange = tokenRange;
@@ -422,8 +354,8 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* parse a pseudo selector with a selector ref */
       | Some((Interpolation(x), _)) => {
-        LinkedList.add(Selector(":"), nodeBuffer);
-        LinkedList.add(SelectorRef(x), nodeBuffer);
+        LinkedList.add(StringNode(Selector, ":"), nodeBuffer);
+        LinkedList.add(RefNode(SelectorRef, x), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -466,7 +398,7 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* emit a universal selector and add a combinator */
       | Some(Asterisk) => {
-        LinkedList.add(UniversalSelector, nodeBuffer);
+        LinkedList.add(Node(UniversalSelector), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -476,7 +408,7 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* emit a parent selector and add a combinator */
       | Some(Ampersand) => {
-        LinkedList.add(ParentSelector, nodeBuffer);
+        LinkedList.add(Node(ParentSelector), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -486,7 +418,7 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* emit a selector and add a combinator */
       | Some(Word(word)) => {
-        LinkedList.add(Selector(word), nodeBuffer);
+        LinkedList.add(StringNode(Selector, word), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -497,7 +429,7 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* emit a selector ref and add a combinator */
       | Some(Interpolation(x)) => {
-        LinkedList.add(SelectorRef(x), nodeBuffer);
+        LinkedList.add(RefNode(SelectorRef, x), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -536,8 +468,8 @@ let parser = (s: Lexer.lexerStream) => {
       if (length === 1) {
         nodeBuffer
       } else {
-        LinkedList.unshift(CompoundValueStart, nodeBuffer);
-        LinkedList.add(CompoundValueEnd, nodeBuffer);
+        LinkedList.unshift(Node(CompoundValueStart), nodeBuffer);
+        LinkedList.add(Node(CompoundValueEnd), nodeBuffer);
         nodeBuffer
       }
     };
@@ -567,7 +499,7 @@ let parser = (s: Lexer.lexerStream) => {
 
         /* when the token is a value and not a function, emit the value */
         | _ => {
-          LinkedList.add(Value(word), nodeBuffer);
+          LinkedList.add(StringNode(Value, word), nodeBuffer);
           /* continue parsing the current level */
           parseValueLevel(nodeBuffer, length + 1, level)
         }
@@ -584,14 +516,14 @@ let parser = (s: Lexer.lexerStream) => {
       /* free strings belong to url() or calc() and can just be added as values on deeper levels */
       | Some(Str(str)) when level > 0 => {
         BufferStream.junk(buffer);
-        LinkedList.add(Value(str), nodeBuffer);
+        LinkedList.add(StringNode(Value, str), nodeBuffer);
         parseValueLevel(nodeBuffer, length + 1, level)
       }
 
       /* interpolations are parsed as "ValueRef"s */
       | Some(Interpolation(x)) => {
         BufferStream.junk(buffer);
-        LinkedList.add(ValueRef(x), nodeBuffer);
+        LinkedList.add(RefNode(ValueRef, x), nodeBuffer);
         parseValueLevel(nodeBuffer, length + 1, level)
       }
 
@@ -633,16 +565,16 @@ let parser = (s: Lexer.lexerStream) => {
       if (length === 1) {
         nodeBuffer
       } else {
-        LinkedList.unshift(CompoundConditionStart, nodeBuffer);
-        LinkedList.add(CompoundConditionEnd, nodeBuffer);
+        LinkedList.unshift(Node(CompoundConditionStart), nodeBuffer);
+        LinkedList.add(Node(CompoundConditionEnd), nodeBuffer);
         nodeBuffer
       }
     };
 
     /* wraps node buffer in condition group nodes */
     let wrapBufferAsGroup = (nodeBuffer: LinkedList.t(node)) => {
-      LinkedList.unshift(ConditionGroupStart, nodeBuffer);
-      LinkedList.add(ConditionGroupEnd, nodeBuffer);
+      LinkedList.unshift(Node(ConditionGroupStart), nodeBuffer);
+      LinkedList.add(Node(ConditionGroupEnd), nodeBuffer);
       nodeBuffer
     };
 
@@ -669,14 +601,14 @@ let parser = (s: Lexer.lexerStream) => {
         }
         /* add condition and continue parsing */
         | _ => {
-          LinkedList.add(Condition(word), nodeBuffer);
+          LinkedList.add(StringNode(Condition, word), nodeBuffer);
           parseConditionLevel(nodeBuffer, length + 1, level)
         }
         }
       }
 
       | Some(Interpolation(x)) => {
-        LinkedList.add(ConditionRef(x), nodeBuffer);
+        LinkedList.add(RefNode(ConditionRef, x), nodeBuffer);
         parseConditionLevel(nodeBuffer, length + 1, level)
       }
 
@@ -688,7 +620,7 @@ let parser = (s: Lexer.lexerStream) => {
 
       /* free strings belong to url() and can just be added as conditions on deeper levels */
       | Some(Str(str)) when level > 0 => {
-        LinkedList.add(Condition(str), nodeBuffer);
+        LinkedList.add(StringNode(Condition, str), nodeBuffer);
         parseConditionLevel(nodeBuffer, length + 1, level)
       }
 
@@ -709,16 +641,16 @@ let parser = (s: Lexer.lexerStream) => {
           let innerValues = LinkedList.create();
 
           LinkedList.add(switch (propertyTokenValue) {
-          | Some(Word(word)) => Property(word)
-          | Some(Interpolation(x)) => PropertyRef(x)
+          | Some(Word(word)) => StringNode(Property, word)
+          | Some(Interpolation(x)) => RefNode(PropertyRef, x)
           | _ => raise(ParserError(unexpected_msg("token", "at-rule group") ++ expected_msg("property"), state.tokenRange))
           }, innerValues);
 
           BufferStream.junk(buffer); /* discard colon */
 
           LinkedList.add(switch (getTokenValue(BufferStream.next(buffer))) {
-          | Some(Word(word)) => Value(word)
-          | Some(Interpolation(x)) => ValueRef(x)
+          | Some(Word(word)) => StringNode(Value, word)
+          | Some(Interpolation(x)) => RefNode(ValueRef, x)
           | _ => raise(ParserError(unexpected_msg("token", "at-rule group") ++ expected_msg("singular value"), state.tokenRange))
           }, innerValues);
 
@@ -762,8 +694,8 @@ let parser = (s: Lexer.lexerStream) => {
     /* emit node for word or interpolation property */
     let node =
       switch (getTokenValue(BufferStream.next(buffer))) {
-      | Some(Word(str)) => Property(str)
-      | Some(Interpolation(x)) => PropertyRef(x)
+      | Some(Word(str)) => StringNode(Property, str)
+      | Some(Interpolation(x)) => RefNode(PropertyRef, x)
       | _ => raise(ParserError(unexpected_msg("token", "property"), state.tokenRange));
       };
 
@@ -798,7 +730,7 @@ let parser = (s: Lexer.lexerStream) => {
     | Some(Colon) => {
       state.ruleLevel = state.ruleLevel + 1;
       state.mode = SelectorLoop;
-      RuleStart(StyleRule) /* emit the starting node for the style rule */
+      RuleKindNode(RuleStart, StyleRule) /* emit the starting node for the style rule */
     }
 
     /* if a semicolon or closing curly brace is reached, the property loop should be triggered */
@@ -851,14 +783,14 @@ let parser = (s: Lexer.lexerStream) => {
        and after the last mainLoop */
     | (Some(Interpolation(x)), Some(Brace(Closing)))
     | (Some(Interpolation(x)), Some(Semicolon)) => {
-      PartialRef(x)
+      RefNode(PartialRef, x)
     }
 
     /* partial interpolation heuristic; (2)
        parse a partial when interpolation is encountered before a selector and after the last mainLoop,
        where the next token is on a separate line */
     | (Some(Interpolation(x)), Some(_)) when isSeparatedByRows(firstTokenEndLoc, secondTokenStartLoc) => {
-      PartialRef(x)
+      RefNode(PartialRef, x)
     }
 
     /* parse at-rules */
@@ -867,26 +799,25 @@ let parser = (s: Lexer.lexerStream) => {
       state.mode = ConditionLoop;
 
       /* emit the starting node for the at-rule */
-      RuleStart(
-        switch (atWord) {
-        | "@media" => MediaRule
-        | "@font-face" => FontFaceRule
-        | "@supports" => SupportsRule
-        | "@keyframes" => KeyframesRule
-        | "@counter-style" => CounterStyleRule
-        | "@document" => DocumentRule
-        | "@viewport" => ViewportRule
-        | _ => {
-          let msg = "'" ++ atWord ++ "' is unsupported.";
-          raise(ParserError(unexpected_msg("at-word", "") ++ msg, state.tokenRange))
-        }
+      RuleKindNode(RuleStart, switch (atWord) {
+      | "@media" => MediaRule
+      | "@font-face" => FontFaceRule
+      | "@supports" => SupportsRule
+      | "@keyframes" => KeyframesRule
+      | "@counter-style" => CounterStyleRule
+      | "@document" => DocumentRule
+      | "@viewport" => ViewportRule
+      | _ => {
+        let msg = "'" ++ atWord ++ "' is unsupported.";
+        raise(ParserError(unexpected_msg("at-word", "") ++ msg, state.tokenRange))
+      }
       })
     }
 
     /* decrease ruleLevel when closing curly brace is encountered */
     | (Some(Brace(Closing)), _) when state.ruleLevel > 0 => {
       state.ruleLevel = state.ruleLevel - 1;
-      RuleEnd
+      Node(RuleEnd)
     }
 
     /* fallback to selector parsing; increase ruleLevel and start SelectorLoop */
@@ -896,7 +827,7 @@ let parser = (s: Lexer.lexerStream) => {
 
       state.ruleLevel = state.ruleLevel + 1;
       state.mode = SelectorLoop;
-      RuleStart(StyleRule) /* emit the starting node for the style rule */
+      RuleKindNode(RuleStart, StyleRule) /* emit the starting node for the style rule */
     }
 
     /* EOF is only allowed when all rules have been closed with closing curly braces */

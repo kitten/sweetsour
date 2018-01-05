@@ -1,10 +1,12 @@
+open IstfNode;
+
 /* Stream type for the ParserStream */
 type printerStream = LazyStream.t(string);
 
 let printer = (s: Parser.parserStream) => {
   let indentation = ref(0);
 
-  let stringifyKind = (kind: Parser.ruleKind) : string => {
+  let stringifyKind = (kind: ruleKind) : string => {
     switch (kind) {
     | StyleRule => "STYLE_RULE"
     | CharsetRule => "CHARSET_RULE"
@@ -25,100 +27,97 @@ let printer = (s: Parser.parserStream) => {
     }
   };
 
-  let stringifyNode = (node: Parser.node) : string => {
+  let stringifyNode = (node: node) : string => {
     let indentImmediate = ref(indentation^);
     let nodeOutput = switch (node) {
-    | RuleStart(kind) => {
+    | RuleKindNode(RuleStart, kind) => {
       indentation := indentation^ + 1;
       "[RULE_START, " ++ stringifyKind(kind) ++ "]"
     }
-    | RuleEnd => {
+    | Node(RuleEnd) => {
       indentation := indentation^ - 1;
       indentImmediate := indentImmediate^ - 1;
       "[RULE_END]"
     }
-    | RuleName(str) => "[RULE_NAME, '" ++ str ++ "']"
-    | Selector(str) => "[SELECTOR, '" ++ str ++ "']"
-    | ParentSelector => "[PARENT_SELECTOR]"
-    | UniversalSelector => "[UNIVERSAL_SELECTOR]"
-    | CompoundSelectorStart => {
+    | StringNode(Selector, str) => "[SELECTOR, '" ++ str ++ "']"
+    | Node(ParentSelector) => "[PARENT_SELECTOR]"
+    | Node(UniversalSelector) => "[UNIVERSAL_SELECTOR]"
+    | Node(CompoundSelectorStart) => {
       indentation := indentation^ + 1;
       "[COMPOUND_SELECTOR_START]"
     }
-    | CompoundSelectorEnd => {
+    | Node(CompoundSelectorEnd) => {
       indentation := indentation^ - 1;
       indentImmediate := indentImmediate^ - 1;
       "[COMPOUND_SELECTOR_END]"
     }
-    | SpaceCombinator => "[SPACE_COMBINATOR]"
-    | DoubledChildCombinator => "[DOUBLED_CHILD_COMBINATOR]"
-    | ChildCombinator => "[CHILD_COMBINATOR]"
-    | NextSiblingCombinator => "[NEXT_SIBLING_COMBINATOR]"
-    | SubsequentSiblingCombinator => "[SUBSEQUENT_SIBLING_COMBINATOR]"
-    | Property(str) => "[PROPERTY, '" ++ str ++ "']"
-    | Value(str) => "[VALUE, '" ++ str ++ "']"
-    | CompoundValueStart => {
+    | Node(SpaceCombinator) => "[SPACE_COMBINATOR]"
+    | Node(DoubledChildCombinator) => "[DOUBLED_CHILD_COMBINATOR]"
+    | Node(ChildCombinator) => "[CHILD_COMBINATOR]"
+    | Node(NextSiblingCombinator) => "[NEXT_SIBLING_COMBINATOR]"
+    | Node(SubsequentSiblingCombinator) => "[SUBSEQUENT_SIBLING_COMBINATOR]"
+    | StringNode(Property, str) => "[PROPERTY, '" ++ str ++ "']"
+    | StringNode(Value, str) => "[VALUE, '" ++ str ++ "']"
+    | Node(CompoundValueStart) => {
       indentation := indentation^ + 1;
       "[COMPOUND_VALUE_START]"
     }
-    | CompoundValueEnd => {
+    | Node(CompoundValueEnd) => {
       indentation := indentation^ - 1;
       indentImmediate := indentImmediate^ - 1;
       "[COMPOUND_VALUE_END]"
     }
-    | Condition(str) => "[CONDITION, '" ++ str ++ "']"
-    | FunctionStart(str) => {
+    | StringNode(Condition, str) => "[CONDITION, '" ++ str ++ "']"
+    | StringNode(FunctionStart, str) => {
       indentation := indentation^ + 1;
       "[FUNCTION_START, '" ++ str ++ "']"
     }
-    | FunctionEnd => {
+    | Node(FunctionEnd) => {
       indentation := indentation^ - 1;
       indentImmediate := indentImmediate^ - 1;
       "[FUNCTION_END]"
     }
-    | AnimationName(str) => "[ANIMATION_NAME, '" ++ str ++ "']"
-    | SelectorRef(_) => "[SELECTOR_REF, ref]"
-    | PropertyRef(_) => "[PROPERTY_REF, ref]"
-    | ValueRef(_) => "[VALUE_REF, ref]"
-    | PartialRef(_) => "[PARTIAL_REF, ref]"
-    | StringStart(str) => {
+    | RefNode(SelectorRef, _) => "[SELECTOR_REF, ref]"
+    | RefNode(PropertyRef, _) => "[PROPERTY_REF, ref]"
+    | RefNode(ValueRef, _) => "[VALUE_REF, ref]"
+    | RefNode(PartialRef, _) => "[PARTIAL_REF, ref]"
+    | StringNode(StringStart, str) => {
       indentation := indentation^ + 1;
       "[STRING_START, '" ++ str ++ "']"
     }
-    | StringEnd => {
+    | Node(StringEnd) => {
       indentation := indentation^ - 1;
       indentImmediate := indentImmediate^ - 1;
       "[STRING_END]"
     }
-    | AttributeSelectorStart(kind) =>
-      "[ATTRIBUTE_SELECTOR_START, " ++ string_of_int(Parser.attributeSelectorKindToJs(kind)) ++ "]"
-    | AttributeSelectorEnd => "[ATTRIBUTE_SELECTOR_END]"
-    | AttributeName(str) => "[ATTRIBUTE_NAME, '" ++ str ++ "']"
-    | AttributeNameRef(_) => "[ATTRIBUTE_NAME_REF, ref]"
-    | AttributeOperator(str) => "[ATTRIBUTE_OPERATOR, '" ++ str ++ "']"
-    | AttributeValue(str) => "[ATTRIBUTE_VALUE, '" ++ str ++ "']"
-    | AttributeValueRef(_) => "[ATTRIBUTE_VALUE_REF, ref]"
-    | ConditionRef(_) => "[CONDITION_REF, ref]"
-    | CompoundConditionStart => {
+    | AttributeKindNode(AttributeSelectorStart, kind) =>
+      "[ATTRIBUTE_SELECTOR_START, " ++ string_of_int(attributeSelectorKindToJs(kind)) ++ "]"
+    | Node(AttributeSelectorEnd) => "[ATTRIBUTE_SELECTOR_END]"
+    | StringNode(AttributeName, str) => "[ATTRIBUTE_NAME, '" ++ str ++ "']"
+    | RefNode(AttributeNameRef, _) => "[ATTRIBUTE_NAME_REF, ref]"
+    | StringNode(AttributeOperator, str) => "[ATTRIBUTE_OPERATOR, '" ++ str ++ "']"
+    | StringNode(AttributeValue, str) => "[ATTRIBUTE_VALUE, '" ++ str ++ "']"
+    | RefNode(AttributeValueRef, _) => "[ATTRIBUTE_VALUE_REF, ref]"
+    | RefNode(ConditionRef, _) => "[CONDITION_REF, ref]"
+    | Node(CompoundConditionStart) => {
       indentation := indentation^ + 1;
       "[COMPOUND_CONDITION_START]"
     }
-    | CompoundConditionEnd => {
+    | Node(CompoundConditionEnd) => {
       indentation := indentation^ - 1;
       indentImmediate := indentImmediate^ - 1;
       "[COMPOUND_CONDITION_END]"
     }
-    | ConditionGroupStart => {
+    | Node(ConditionGroupStart) => {
       indentation := indentation^ - 1;
       indentImmediate := indentImmediate^ - 1;
       "[CONDITION_GROUP_START]"
     }
-    | ConditionGroupEnd => {
+    | Node(ConditionGroupEnd) => {
       indentation := indentation^ - 1;
       indentImmediate := indentImmediate^ - 1;
       "[CONDITION_GROUP_END]"
     }
-    | EOF => "/eof"
     };
 
     let indent = String.make(indentImmediate^ * 2, ' ');

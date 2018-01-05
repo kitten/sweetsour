@@ -1,4 +1,5 @@
 open Jest;
+open IstfNode;
 open Parser;
 
 let it = test;
@@ -34,9 +35,9 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 7), (1, 7)),
         Token(Brace(Closing), (1, 8), (1, 8))
       |])) == [|
-        RuleStart(StyleRule),
-        Selector(".test"),
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, ".test"),
+        Node(RuleEnd)
       |];
     });
 
@@ -50,12 +51,12 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 9), (1, 9)),
         Token(Brace(Closing), (1, 10), (1, 10))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        Selector(".first"),
-        SelectorRef(inter),
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".first"),
+        RefNode(SelectorRef, inter),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -70,14 +71,14 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 17), (1, 17)),
         Token(Brace(Closing), (1, 18), (1, 18))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        Selector(".first"),
-        SpaceCombinator,
-        Selector(".second"),
-        SelectorRef(inter),
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".first"),
+        Node(SpaceCombinator),
+        StringNode(Selector, ".second"),
+        RefNode(SelectorRef, inter),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -91,12 +92,12 @@ describe("Parser", () => {
         Token(Brace(Closing), (1, 18), (1, 18)),
         Token(Brace(Closing), (1, 19), (1, 19))
       |])) == [|
-        RuleStart(StyleRule),
-        Selector(".first"),
-        RuleStart(StyleRule),
-        Selector(".second"),
-        RuleEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, ".first"),
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, ".second"),
+        Node(RuleEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -109,12 +110,12 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 12), (1, 12)),
         Token(Brace(Closing), (1, 13), (1, 13))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        Selector(".test"),
-        Selector(":hover"),
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".test"),
+        StringNode(Selector, ":hover"),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -128,12 +129,12 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 14), (1, 14)),
         Token(Brace(Closing), (1, 15), (1, 15))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        Selector(".test"),
-        Selector(":before"),
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".test"),
+        StringNode(Selector, ":before"),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -146,13 +147,13 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 13), (1, 13)),
         Token(Brace(Closing), (1, 14), (1, 14))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        Selector(".test"),
-        SpaceCombinator,
-        Selector(":hover"),
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".test"),
+        Node(SpaceCombinator),
+        StringNode(Selector, ":hover"),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -167,16 +168,16 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 15), (1, 15)),
         Token(Brace(Closing), (1, 15), (1, 15))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        ParentSelector,
-        SpaceCombinator,
-        Selector(".abc"),
-        SpaceCombinator,
-        UniversalSelector,
-        Selector(":hover"),
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        Node(ParentSelector),
+        Node(SpaceCombinator),
+        StringNode(Selector, ".abc"),
+        Node(SpaceCombinator),
+        Node(UniversalSelector),
+        StringNode(Selector, ":hover"),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -192,15 +193,15 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 13), (1, 13)),
         Token(Brace(Closing), (1, 14), (1, 14))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        Selector(".test"),
-        Selector(":"),
-        SelectorRef(inter),
-        SpaceCombinator,
-        Selector("div"),
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".test"),
+        StringNode(Selector, ":"),
+        RefNode(SelectorRef, inter),
+        Node(SpaceCombinator),
+        StringNode(Selector, "div"),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -213,10 +214,10 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 17), (1, 17)),
         Token(Brace(Closing), (1, 18), (1, 18))
       |])) == [|
-        RuleStart(StyleRule),
-        Selector(".first"),
-        Selector(".second"),
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, ".first"),
+        StringNode(Selector, ".second"),
+        Node(RuleEnd)
       |]
     });
 
@@ -235,15 +236,15 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 29), (1, 29)),
         Token(Brace(Closing), (1, 30), (1, 30))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        Selector(".test"),
-        FunctionStart(":not"),
-        Selector(".first"),
-        Selector(".second"),
-        FunctionEnd,
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".test"),
+        StringNode(FunctionStart, ":not"),
+        StringNode(Selector, ".first"),
+        StringNode(Selector, ".second"),
+        Node(FunctionEnd),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -263,16 +264,16 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 22), (1, 22)),
         Token(Brace(Closing), (1, 23), (1, 23))
       |])) == [|
-        RuleStart(StyleRule),
-        FunctionStart(":not"),
-        CompoundSelectorStart,
-        Selector(".test"),
-        FunctionStart(":not"),
-        Selector("div"),
-        FunctionEnd,
-        CompoundSelectorEnd,
-        FunctionEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(FunctionStart, ":not"),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".test"),
+        StringNode(FunctionStart, ":not"),
+        StringNode(Selector, "div"),
+        Node(FunctionEnd),
+        Node(CompoundSelectorEnd),
+        Node(FunctionEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -293,13 +294,13 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 9), (1, 9)),
         Token(Brace(Closing), (1, 10), (1, 10))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        ParentSelector,
-        ChildCombinator,
-        Selector("div"),
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        Node(ParentSelector),
+        Node(ChildCombinator),
+        StringNode(Selector, "div"),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -313,13 +314,13 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 10), (1, 10)),
         Token(Brace(Closing), (1, 11), (1, 11))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        ParentSelector,
-        DoubledChildCombinator,
-        Selector("div"),
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        Node(ParentSelector),
+        Node(DoubledChildCombinator),
+        StringNode(Selector, "div"),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -358,14 +359,14 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 10), (1, 10)),
         Token(Brace(Closing), (1, 11), (1, 11))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        Selector(".test"),
-        AttributeSelectorStart(CaseSensitive),
-        AttributeName("attr"),
-        AttributeSelectorEnd,
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".test"),
+        AttributeKindNode(AttributeSelectorStart, CaseSensitive),
+        StringNode(AttributeName, "attr"),
+        Node(AttributeSelectorEnd),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -379,15 +380,15 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 10), (1, 10)),
         Token(Brace(Closing), (1, 11), (1, 11))
       |])) == [|
-        RuleStart(StyleRule),
-        CompoundSelectorStart,
-        Selector(".test"),
-        SpaceCombinator,
-        AttributeSelectorStart(CaseSensitive),
-        AttributeName("abc"),
-        AttributeSelectorEnd,
-        CompoundSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        StringNode(Selector, ".test"),
+        Node(SpaceCombinator),
+        AttributeKindNode(AttributeSelectorStart, CaseSensitive),
+        StringNode(AttributeName, "abc"),
+        Node(AttributeSelectorEnd),
+        Node(CompoundSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -404,13 +405,13 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 15), (1, 15)),
         Token(Brace(Closing), (1, 16), (1, 16))
       |])) == [|
-        RuleStart(StyleRule),
-        AttributeSelectorStart(CaseSensitive),
-        AttributeName("attr"),
-        AttributeOperator("="),
-        AttributeValue("\"test\""),
-        AttributeSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        AttributeKindNode(AttributeSelectorStart, CaseSensitive),
+        StringNode(AttributeName, "attr"),
+        StringNode(AttributeOperator, "="),
+        StringNode(AttributeValue, "\"test\""),
+        Node(AttributeSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -428,13 +429,13 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 15), (1, 15)),
         Token(Brace(Closing), (1, 16), (1, 16))
       |])) == [|
-        RuleStart(StyleRule),
-        AttributeSelectorStart(CaseSensitive),
-        AttributeName("attr"),
-        AttributeOperator("^="),
-        AttributeValue("\"test\""),
-        AttributeSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        AttributeKindNode(AttributeSelectorStart, CaseSensitive),
+        StringNode(AttributeName, "attr"),
+        StringNode(AttributeOperator, "^="),
+        StringNode(AttributeValue, "\"test\""),
+        Node(AttributeSelectorEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -453,13 +454,13 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 17), (1, 17)),
         Token(Brace(Closing), (1, 18), (1, 18))
       |])) == [|
-        RuleStart(StyleRule),
-        AttributeSelectorStart(CaseInsensitive),
-        AttributeName("attr"),
-        AttributeOperator("^="),
-        AttributeValue("\"test\""),
-        AttributeSelectorEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        AttributeKindNode(AttributeSelectorStart, CaseInsensitive),
+        StringNode(AttributeName, "attr"),
+        StringNode(AttributeOperator, "^="),
+        StringNode(AttributeValue, "\"test\""),
+        Node(AttributeSelectorEnd),
+        Node(RuleEnd)
       |];
     });
   });
@@ -476,8 +477,8 @@ describe("Parser", () => {
         Token(Word("papayawhip"), (1, 8), (1, 18)),
         Token(Semicolon, (1, 19), (1, 19))
       |])) == [|
-        Property("color"),
-        Value("papayawhip"),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
       |];
     });
 
@@ -489,8 +490,8 @@ describe("Parser", () => {
         Token(Word("papayawhip"), (1, 12), (1, 21)),
         Token(Semicolon, (1, 22), (1, 22))
       |])) == [|
-        Property("-ms-color"),
-        Value("papayawhip"),
+        StringNode(Property, "-ms-color"),
+        StringNode(Value, "papayawhip"),
       |];
     });
 
@@ -504,8 +505,8 @@ describe("Parser", () => {
         Token(Semicolon, (1, 17), (1, 17)),
         Token(Semicolon, (1, 18), (1, 18))
       |])) == [|
-        Property("color"),
-        Value("papayawhip"),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
       |];
     });
 
@@ -519,8 +520,8 @@ describe("Parser", () => {
         Token(Word("papayawhip"), (1, 4), (1, 13)),
         Token(Semicolon, (1, 14), (1, 14))
       |])) == [|
-        PropertyRef(inter),
-        Value("papayawhip")
+        RefNode(PropertyRef, inter),
+        StringNode(Value, "papayawhip")
       |];
     });
 
@@ -534,8 +535,8 @@ describe("Parser", () => {
         Token(Interpolation(inter), (1, 8), (1, 8)),
         Token(Semicolon, (1, 9), (1, 9))
       |])) == [|
-        Property("color"),
-        ValueRef(inter)
+        StringNode(Property, "color"),
+        RefNode(ValueRef, inter)
       |];
     });
 
@@ -549,9 +550,9 @@ describe("Parser", () => {
         Token(Word("palevioletred"), (1, 13), (1, 25)),
         Token(Semicolon, (1, 26), (1, 26))
       |])) == [|
-        Property("color"),
-        Value("papayawhip"),
-        Value("palevioletred")
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        StringNode(Value, "palevioletred")
       |];
     });
 
@@ -569,9 +570,9 @@ describe("Parser", () => {
         Token(Quote(Single), (1, 25), (1, 25)),
         Token(Semicolon, (1, 26), (1, 26))
       |])) == [|
-        Property("color"),
-        Value("\"hello\""),
-        Value("'world'")
+        StringNode(Property, "color"),
+        StringNode(Value, "\"hello\""),
+        StringNode(Value, "'world'")
       |];
     });
 
@@ -600,12 +601,12 @@ describe("Parser", () => {
         Token(Quote(Double), (1, 22), (1, 22)),
         Token(Semicolon, (1, 23), (1, 23))
       |])) == [|
-        Property("color"),
-        StringStart("\""),
-        Value("hello "),
-        ValueRef(inter),
-        Value(" world"),
-        StringEnd
+        StringNode(Property, "color"),
+        StringNode(StringStart, "\""),
+        StringNode(Value, "hello "),
+        RefNode(ValueRef, inter),
+        StringNode(Value, " world"),
+        Node(StringEnd)
       |];
     });
 
@@ -620,10 +621,10 @@ describe("Parser", () => {
         Token(Paren(Closing), (1, 29), (1, 29)),
         Token(Semicolon, (1, 30), (1, 30))
       |])) == [|
-        Property("width"),
-        FunctionStart("calc"),
-        Value("2 * (50% - 20px)"),
-        FunctionEnd
+        StringNode(Property, "width"),
+        StringNode(FunctionStart, "calc"),
+        StringNode(Value, "2 * (50% - 20px)"),
+        Node(FunctionEnd)
       |];
     });
 
@@ -642,14 +643,14 @@ describe("Parser", () => {
         Token(Paren(Closing), (1, 25), (1, 25)),
         Token(Semicolon, (1, 26), (1, 26))
       |])) == [|
-        Property("width"),
-        FunctionStart("calc"),
-        CompoundValueStart,
-        Value("2 * (50% - "),
-        ValueRef(inter),
-        Value(")"),
-        CompoundValueEnd,
-        FunctionEnd
+        StringNode(Property, "width"),
+        StringNode(FunctionStart, "calc"),
+        Node(CompoundValueStart),
+        StringNode(Value, "2 * (50% - "),
+        RefNode(ValueRef, inter),
+        StringNode(Value, ")"),
+        Node(CompoundValueEnd),
+        Node(FunctionEnd)
       |];
     });
 
@@ -666,10 +667,10 @@ describe("Parser", () => {
         Token(Paren(Closing), (1, 38), (1, 38)),
         Token(Semicolon, (1, 39), (1, 39))
       |])) == [|
-        Property("background-image"),
-        FunctionStart("url"),
-        Value("\"http://test.com\""),
-        FunctionEnd
+        StringNode(Property, "background-image"),
+        StringNode(FunctionStart, "url"),
+        StringNode(Value, "\"http://test.com\""),
+        Node(FunctionEnd)
       |];
     });
 
@@ -689,13 +690,13 @@ describe("Parser", () => {
         Token(Paren(Closing), (1, 39), (1, 39)),
         Token(Semicolon, (1, 40), (1, 40))
       |])) == [|
-        Property("background-image"),
-        FunctionStart("url"),
-        StringStart("\""),
-        Value("http://test.com/"),
-        ValueRef(inter),
-        StringEnd,
-        FunctionEnd
+        StringNode(Property, "background-image"),
+        StringNode(FunctionStart, "url"),
+        StringNode(StringStart, "\""),
+        StringNode(Value, "http://test.com/"),
+        RefNode(ValueRef, inter),
+        Node(StringEnd),
+        Node(FunctionEnd)
       |];
     });
 
@@ -714,12 +715,12 @@ describe("Parser", () => {
         Token(Paren(Closing), (1, 24), (1, 24)),
         Token(Semicolon, (1, 25), (1, 25))
       |])) == [|
-        Property("background-image"),
-        FunctionStart("url"),
-        StringStart("\""),
-        ValueRef(inter),
-        StringEnd,
-        FunctionEnd
+        StringNode(Property, "background-image"),
+        StringNode(FunctionStart, "url"),
+        StringNode(StringStart, "\""),
+        RefNode(ValueRef, inter),
+        Node(StringEnd),
+        Node(FunctionEnd)
       |];
     });
 
@@ -732,11 +733,11 @@ describe("Parser", () => {
         Token(Word("20px"), (1, 15), (1, 17)),
         Token(Semicolon, (1, 18), (1, 18))
       |])) == [|
-        Property("padding"),
-        CompoundValueStart,
-        Value("10px"),
-        Value("20px"),
-        CompoundValueEnd
+        StringNode(Property, "padding"),
+        Node(CompoundValueStart),
+        StringNode(Value, "10px"),
+        StringNode(Value, "20px"),
+        Node(CompoundValueEnd)
       |];
     });
 
@@ -767,9 +768,9 @@ describe("Parser", () => {
         Token(Word("papayawhip"), (2, 8), (2, 18)),
         Token(Semicolon, (2, 19), (2, 19))
       |])) == [|
-        PartialRef(inter),
-        Property("color"),
-        Value("papayawhip"),
+        RefNode(PartialRef, inter),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
       |];
     });
 
@@ -783,10 +784,10 @@ describe("Parser", () => {
         Token(Brace(Opening), (2, 7), (2, 7)),
         Token(Brace(Closing), (2, 8), (2, 8))
       |])) == [|
-        PartialRef(inter),
-        RuleStart(StyleRule),
-        Selector(".test"),
-        RuleEnd
+        RefNode(PartialRef, inter),
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, ".test"),
+        Node(RuleEnd)
       |];
     });
 
@@ -800,10 +801,10 @@ describe("Parser", () => {
         Token(Interpolation(inter), (1, 8), (1, 8)),
         Token(Brace(Closing), (1, 9), (1, 9))
       |])) == [|
-        RuleStart(StyleRule),
-        Selector(".test"),
-        PartialRef(inter),
-        RuleEnd
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, ".test"),
+        RefNode(PartialRef, inter),
+        Node(RuleEnd)
       |];
     });
 
@@ -822,11 +823,11 @@ describe("Parser", () => {
         Token(Word("blue"), (2, 8), (2, 11)),
         Token(Semicolon, (2, 12), (2, 12))
       |])) == [|
-        Property("color"),
-        Value("blue"),
-        PartialRef(inter),
-        Property("color"),
-        Value("blue")
+        StringNode(Property, "color"),
+        StringNode(Value, "blue"),
+        RefNode(PartialRef, inter),
+        StringNode(Property, "color"),
+        StringNode(Value, "blue")
       |];
     });
 
@@ -842,9 +843,9 @@ describe("Parser", () => {
         Token(Word("blue"), (1, 10), (1, 13)),
         Token(Semicolon, (1, 14), (1, 14))
       |])) == [|
-        PartialRef(inter),
-        Property("color"),
-        Value("blue")
+        RefNode(PartialRef, inter),
+        StringNode(Property, "color"),
+        StringNode(Value, "blue")
       |];
     });
 
@@ -878,9 +879,9 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 12), (1, 12)),
         Token(Brace(Closing), (1, 13), (1, 13))
       |])) == [|
-        RuleStart(MediaRule),
-        Condition("all"),
-        RuleEnd
+        RuleKindNode(RuleStart, MediaRule),
+        StringNode(Condition, "all"),
+        Node(RuleEnd)
       |];
     });
 
@@ -898,16 +899,16 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 38), (1, 38)),
         Token(Brace(Closing), (1, 39), (1, 39))
       |])) == [|
-        RuleStart(MediaRule),
-        CompoundConditionStart,
-        Condition("screen"),
-        Condition("and"),
-        ConditionGroupStart,
-        Property("min-width"),
-        Value("900px"),
-        ConditionGroupEnd,
-        CompoundConditionEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, MediaRule),
+        Node(CompoundConditionStart),
+        StringNode(Condition, "screen"),
+        StringNode(Condition, "and"),
+        Node(ConditionGroupStart),
+        StringNode(Property, "min-width"),
+        StringNode(Value, "900px"),
+        Node(ConditionGroupEnd),
+        Node(CompoundConditionEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -921,10 +922,10 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 23), (1, 23)),
         Token(Brace(Closing), (1, 24), (1, 24))
       |])) == [|
-        RuleStart(MediaRule),
-        Condition("screen"),
-        Condition("print"),
-        RuleEnd
+        RuleKindNode(RuleStart, MediaRule),
+        StringNode(Condition, "screen"),
+        StringNode(Condition, "print"),
+        Node(RuleEnd)
       |];
     });
 
@@ -942,19 +943,19 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 24), (1, 24)),
         Token(Brace(Closing), (1, 25), (1, 25))
       |])) == [|
-        RuleStart(SupportsRule),
-        CompoundConditionStart,
-        Condition("not"),
-        ConditionGroupStart,
-        CompoundConditionStart,
-        Condition("not"),
-        ConditionGroupStart,
-        Condition("test"),
-        ConditionGroupEnd,
-        CompoundConditionEnd,
-        ConditionGroupEnd,
-        CompoundConditionEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, SupportsRule),
+        Node(CompoundConditionStart),
+        StringNode(Condition, "not"),
+        Node(ConditionGroupStart),
+        Node(CompoundConditionStart),
+        StringNode(Condition, "not"),
+        Node(ConditionGroupStart),
+        StringNode(Condition, "test"),
+        Node(ConditionGroupEnd),
+        Node(CompoundConditionEnd),
+        Node(ConditionGroupEnd),
+        Node(CompoundConditionEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -972,19 +973,19 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 24), (1, 24)),
         Token(Brace(Closing), (1, 25), (1, 25))
       |])) == [|
-        RuleStart(SupportsRule),
-        CompoundConditionStart,
-        Condition("not"),
-        ConditionGroupStart,
-        CompoundConditionStart,
-        Condition("not"),
-        ConditionGroupStart,
-        Condition("test"),
-        ConditionGroupEnd,
-        CompoundConditionEnd,
-        ConditionGroupEnd,
-        CompoundConditionEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, SupportsRule),
+        Node(CompoundConditionStart),
+        StringNode(Condition, "not"),
+        Node(ConditionGroupStart),
+        Node(CompoundConditionStart),
+        StringNode(Condition, "not"),
+        Node(ConditionGroupStart),
+        StringNode(Condition, "test"),
+        Node(ConditionGroupEnd),
+        Node(CompoundConditionEnd),
+        Node(ConditionGroupEnd),
+        Node(CompoundConditionEnd),
+        Node(RuleEnd)
       |];
     });
 
@@ -1001,11 +1002,11 @@ describe("Parser", () => {
         Token(Brace(Opening), (1, 20), (1, 20)),
         Token(Brace(Closing), (1, 21), (1, 21))
       |])) == [|
-        RuleStart(DocumentRule),
-        FunctionStart("url"),
-        Condition("\"test\""),
-        FunctionEnd,
-        RuleEnd
+        RuleKindNode(RuleStart, DocumentRule),
+        StringNode(FunctionStart, "url"),
+        StringNode(Condition, "\"test\""),
+        Node(FunctionEnd),
+        Node(RuleEnd)
       |];
     });
   });

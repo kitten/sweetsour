@@ -88,7 +88,8 @@ type node =
   | AttributeKindNode(nodeKind_attributeKind, attributeSelectorKind)
   | RefNode(nodeKind_ref, interpolation)
   | StringNode(nodeKind_string, string)
-  | Node(nodeKind_empty);
+  | Node(nodeKind_empty)
+  | EOF;
 
 type rawNodePayload;
 
@@ -124,6 +125,7 @@ let nodeToJs = (node: node) : (int, rawNodePayload) => {
   )
 
   | Node(kind) => [@bs] emptyRawNodePayload(nodeKind_emptyToJs(kind))
+  | EOF => [@bs] emptyRawNodePayload(0)
   }
 };
 
