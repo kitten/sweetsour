@@ -3,7 +3,7 @@ open IstfNode;
 /* Stream type for the ParserStream */
 type printerStream = LazyStream.t(string);
 
-let printer = (s: Parser.parserStream) => {
+let printer = (s: nodeStream) => {
   let indentation = ref(0);
 
   let stringifyKind = (kind: ruleKind) : string => {
@@ -118,6 +118,7 @@ let printer = (s: Parser.parserStream) => {
       indentImmediate := indentImmediate^ - 1;
       "[CONDITION_GROUP_END]"
     }
+    | EOF => "/eof"
     };
 
     let indent = String.make(indentImmediate^ * 2, ' ');

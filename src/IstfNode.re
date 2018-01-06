@@ -149,3 +149,6 @@ let nodeFromJs = (nodeRaw: (int, rawNodePayload)) : node => {
   | _ => raise(ConversionError("Serialised node data was not recognised"))
   }
 };
+
+/* Stream type for nodes */
+type nodeStream = LazyStream.t(node);

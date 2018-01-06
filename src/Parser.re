@@ -4,9 +4,6 @@ open IstfNode;
 /* an error raised by the parser contains a message and a line number */
 exception ParserError(string, locationRange);
 
-/* Stream type for the ParserStream */
-type parserStream = LazyStream.t(node);
-
 /* Mode for parseString to determine what value nodes to add */
 type stringValueKind =
   | DeclarationValue
@@ -47,7 +44,7 @@ type state = {
   mutable mode: parserMode
 };
 
-let parser = (s: Lexer.lexerStream) : parserStream => {
+let parser = (s: Lexer.lexerStream) : nodeStream => {
   let state = {
     tokenRange: { startLoc: (1, 0), endLoc: (1, 0) },
     ruleLevel: 0,

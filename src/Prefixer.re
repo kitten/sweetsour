@@ -30,7 +30,7 @@ type state = {
   mutable bufferPointer: option(LinkedList.elementNode(node))
 };
 
-let prefixer = (s: Parser.parserStream) => {
+let prefixer = (s: nodeStream) => {
   let state = {
     mode: MainLoop,
     prefixedProperties: [],
