@@ -40,19 +40,18 @@ type state = {
   /* value to keep track of the current rule nesting */
   mutable ruleLevel: int,
   /* buffer to hold nodes for the BufferLoop */
-  mutable nodeBuffer: NestedList.t(node),
-  mutable nodeIterator: NestedList.iterator(node),
+  mutable bufferedNodeIterator: NestedList.iterator(node),
   /* the current mode of the parser */
   mutable mode: parserMode
 };
 
+let emptyNodeIterator = NestedList.createIterator(NestedList.create());
+
 let parser = (s: Lexer.lexerStream) : nodeStream => {
-  let nodeBuffer = NestedList.create();
   let state = {
     tokenRange: { startLoc: (1, 0), endLoc: (1, 0) },
     ruleLevel: 0,
-    nodeBuffer,
-    nodeIterator: NestedList.createIterator(nodeBuffer),
+    bufferedNodeIterator: emptyNodeIterator,
     mode: MainLoop
   };
 
@@ -707,8 +706,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
     };
 
     /* preparse values and start the buffer loop to consume & emit them */
-    state.nodeBuffer = parseValues();
-    state.nodeIterator = NestedList.createIterator(state.nodeBuffer);
+    state.bufferedNodeIterator = NestedList.createIterator(parseValues());
     state.mode = BufferLoop;
 
     node
@@ -845,7 +843,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
   /* emits nodes from a preparsed buffer */
   and bufferLoop = () : node => {
     /* remove a node from the buffered list */
-    switch (NestedList.next(state.nodeIterator)) {
+    switch (NestedList.next(state.bufferedNodeIterator)) {
       /* when the end of the buffered nodes is reached, return to the main loop */
       | None => {
         state.mode = MainLoop;
@@ -858,15 +856,13 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
   };
 
   let selectorLoop = () : node => {
-    state.nodeBuffer = parseSelectors();
-    state.nodeIterator = NestedList.createIterator(state.nodeBuffer);
+    state.bufferedNodeIterator = NestedList.createIterator(parseSelectors());
     state.mode = BufferLoop;
     bufferLoop()
   };
 
   let conditionLoop = () : node => {
-    state.nodeBuffer = parseConditions();
-    state.nodeIterator = NestedList.createIterator(state.nodeBuffer);
+    state.bufferedNodeIterator = NestedList.createIterator(parseConditions());
     state.mode = BufferLoop;
     bufferLoop()
   };
