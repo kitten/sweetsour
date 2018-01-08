@@ -117,6 +117,18 @@ describe("NestedList", () => {
         == [ Some("test 1"), Some("test 2"), None ]
     });
 
+    it("allows to add after concat with empty b", () => {
+      let a = create();
+      add("test 1", a);
+      let b = create();
+      let combined = concat(a, b);
+      add("test 2", combined);
+      let iterator = createIterator(combined);
+
+      expect([ next(iterator), next(iterator), next(iterator) ])
+        == [ Some("test 1"), Some("test 2"), None ]
+    });
+
     it("allows unshift/add after concatenation", () => {
       let a = create();
       add("test 1", a);

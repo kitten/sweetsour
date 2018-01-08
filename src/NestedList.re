@@ -41,8 +41,9 @@ let prependBranch = (concatList: t('a), nestedList: t('a)) => {
 };
 
 let concat = (first: t('a), second: t('a)) : t('a) =>
-  switch (first.head^) {
-  | Empty => second
+  switch (first.head^, second.head^) {
+  | (Empty, _) => second
+  | (_, Empty) => first
   | _ => {
     first.tail := second.head^;
     first.tail = second.tail;
