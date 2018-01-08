@@ -1,4 +1,5 @@
 open Common;
+
 open IstfNode;
 
 /* an error raised by the parser contains a message and a line number */
@@ -39,16 +40,19 @@ type state = {
   /* value to keep track of the current rule nesting */
   mutable ruleLevel: int,
   /* buffer to hold nodes for the BufferLoop */
-  mutable nodeBuffer: LinkedList.t(node),
+  mutable nodeBuffer: NestedList.t(node),
+  mutable nodeIterator: NestedList.iterator(node),
   /* the current mode of the parser */
   mutable mode: parserMode
 };
 
 let parser = (s: Lexer.lexerStream) : nodeStream => {
+  let nodeBuffer = NestedList.create();
   let state = {
     tokenRange: { startLoc: (1, 0), endLoc: (1, 0) },
     ruleLevel: 0,
-    nodeBuffer: LinkedList.create(),
+    nodeBuffer,
+    nodeIterator: NestedList.createIterator(nodeBuffer),
     mode: MainLoop
   };
 
@@ -78,13 +82,13 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
   };
 
   /* parses a string starting after the first quote */
-  let parseString = (valueKind: stringValueKind, quoteKind: Lexer.quoteKind) : LinkedList.t(node) => {
+  let parseString = (valueKind: stringValueKind, quoteKind: Lexer.quoteKind) : NestedList.t(node) => {
     /* add a Value node to nodeBuffer if the string is not empty */
-    let addValueNode = (str: string, nodeBuffer: LinkedList.t(node)) => {
+    let addValueNode = (str: string, nodeBuffer: NestedList.t(node)) => {
       switch (str) {
       | "" => nodeBuffer
       | _ => {
-        LinkedList.add(StringNode(switch (valueKind) {
+        NestedList.add(StringNode(switch (valueKind) {
         | DeclarationValue => Value
         | AttributeSelectorValue => AttributeValue
         | ConditionLiteral => Condition
@@ -95,7 +99,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       }
     };
 
-    let nodeBuffer = LinkedList.create();
+    let nodeBuffer = NestedList.create();
 
     /* turn the quote kind into a string */
     let quoteStr = switch (quoteKind) {
@@ -108,7 +112,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       /* interpolations are added as "(Attribute)ValueRef"s and containsInterpolation is set to true */
       | Some(Interpolation(x)) => {
         /* add the Value of the past str string and then add the ValueRef/AttributeValueRef */
-        LinkedList.add(RefNode(switch (valueKind) {
+        NestedList.add(RefNode(switch (valueKind) {
         | DeclarationValue => ValueRef
         | AttributeSelectorValue => AttributeValueRef
         | ConditionLiteral => ConditionRef
@@ -120,9 +124,9 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       /* when the ending quote is reached, return the result */
       | Some(Quote(endKind)) when endKind === quoteKind => {
         /* if interpolations or more than one string were parsed, wrap the nodes in a compound */
-        if (nodeBuffer.size > 1 || containsInterpolation) {
-          LinkedList.unshift(StringNode(StringStart, quoteStr), addValueNode(str, nodeBuffer));
-          LinkedList.add(Node(StringEnd), nodeBuffer);
+        if (NestedList.getSize(nodeBuffer) > 1 || containsInterpolation) {
+          NestedList.unshift(StringNode(StringStart, quoteStr), addValueNode(str, nodeBuffer));
+          NestedList.add(Node(StringEnd), nodeBuffer);
           nodeBuffer
         } else {
           /* otherwise just add a value node containing the string */
@@ -142,21 +146,21 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
   };
 
   /* wraps node buffer in function nodes using the passed function name (fnName) */
-  let wrapBufferAsFunction = (nodeBuffer: LinkedList.t(node), fnName: string) => {
-    LinkedList.unshift(StringNode(FunctionStart, fnName), nodeBuffer);
-    LinkedList.add(Node(FunctionEnd), nodeBuffer);
+  let wrapBufferAsFunction = (nodeBuffer: NestedList.t(node), fnName: string) => {
+    NestedList.unshift(StringNode(FunctionStart, fnName), nodeBuffer);
+    NestedList.add(Node(FunctionEnd), nodeBuffer);
     nodeBuffer
   };
 
   /* parses an attribute selector and returns the resulting node buffer */
-  let parseAttributeSelector = () : LinkedList.t(node) => {
-    let wrapNodes = (kind: attributeSelectorKind, nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) => {
-      LinkedList.unshift(AttributeKindNode(AttributeSelectorStart, kind), nodeBuffer);
-      LinkedList.add(Node(AttributeSelectorEnd), nodeBuffer);
+  let parseAttributeSelector = () : NestedList.t(node) => {
+    let wrapNodes = (kind: attributeSelectorKind, nodeBuffer: NestedList.t(node)) : NestedList.t(node) => {
+      NestedList.unshift(AttributeKindNode(AttributeSelectorStart, kind), nodeBuffer);
+      NestedList.add(Node(AttributeSelectorEnd), nodeBuffer);
       nodeBuffer
     };
 
-    let parseCasingMarker = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) =>
+    let parseCasingMarker = (nodeBuffer: NestedList.t(node)) : NestedList.t(node) =>
       switch (getTokenValue(BufferStream.next(buffer))) {
       | Some(Word("i"))
       | Some(Word("I"))
@@ -172,19 +176,19 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       | _ => raise(ParserError(unexpected_msg("token", "attribute selector"), state.tokenRange))
       };
 
-    let parseAttributeValue = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) =>
+    let parseAttributeValue = (nodeBuffer: NestedList.t(node)) : NestedList.t(node) =>
       switch (getTokenValue(BufferStream.next(buffer))) {
       | Some(Quote(kind)) => {
         let innerValues = parseString(AttributeSelectorValue, kind);
-        parseCasingMarker(LinkedList.concat(nodeBuffer, innerValues))
+        parseCasingMarker(NestedList.concat(nodeBuffer, innerValues))
       }
       | _ => raise(ParserError(unexpected_msg("token", "attribute value") ++ expected_msg("string"), state.tokenRange))
       };
 
-    let parseAttributeOperator = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) =>
+    let parseAttributeOperator = (nodeBuffer: NestedList.t(node)) : NestedList.t(node) =>
       switch (getTokenValue(BufferStream.next(buffer))) {
       | Some(Equal) => {
-        LinkedList.add(StringNode(AttributeOperator, "="), nodeBuffer);
+        NestedList.add(StringNode(AttributeOperator, "="), nodeBuffer);
         parseAttributeValue(nodeBuffer)
       }
 
@@ -203,7 +207,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
         | _ => "="
         });
 
-        LinkedList.add(node, nodeBuffer);
+        NestedList.add(node, nodeBuffer);
         parseAttributeValue(nodeBuffer)
       }
 
@@ -211,29 +215,29 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       | _ => raise(ParserError(unexpected_msg("token", "attribute selector"), state.tokenRange))
       };
 
-    let parseAttributeName = (nodeBuffer: LinkedList.t(node)) : LinkedList.t(node) => {
+    let parseAttributeName = (nodeBuffer: NestedList.t(node)) : NestedList.t(node) => {
       switch (getTokenValue(BufferStream.next(buffer))) {
-      | Some(Word(word)) => LinkedList.add(StringNode(AttributeName, word), nodeBuffer)
-      | Some(Interpolation(x)) => LinkedList.add(RefNode(AttributeNameRef, x), nodeBuffer)
+      | Some(Word(word)) => NestedList.add(StringNode(AttributeName, word), nodeBuffer)
+      | Some(Interpolation(x)) => NestedList.add(RefNode(AttributeNameRef, x), nodeBuffer)
       | _ => raise(ParserError(unexpected_msg("token", "attribute selector") ++ expected_msg("attribute name"), state.tokenRange))
       };
 
       parseAttributeOperator(nodeBuffer)
     };
 
-    parseAttributeName(LinkedList.create())
+    parseAttributeName(NestedList.create())
   };
 
   /* parses all selector nodes recursively, including functions and compound selectors,
      and returns the resulting node buffer */
-  let parseSelectors = () : LinkedList.t(node) => {
+  let parseSelectors = () : NestedList.t(node) => {
     /* wraps node buffer in compound selector nodes when more than one value was parsed (length > 1) */
-    let wrapBufferAsCompound = (nodeBuffer: LinkedList.t(node), length: int) => {
+    let wrapBufferAsCompound = (nodeBuffer: NestedList.t(node), length: int) => {
       if (length === 1) {
         nodeBuffer
       } else {
-        LinkedList.unshift(Node(CompoundSelectorStart), nodeBuffer);
-        LinkedList.add(Node(CompoundSelectorEnd), nodeBuffer);
+        NestedList.unshift(Node(CompoundSelectorStart), nodeBuffer);
+        NestedList.add(Node(CompoundSelectorEnd), nodeBuffer);
         nodeBuffer
       }
     };
@@ -255,7 +259,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
     /* parse a combinator and fall back to a space combinator;
        also returns the number of nodes that were added */
-    let parseCombinator = (nodeBuffer: LinkedList.t(node)) : int => {
+    let parseCombinator = (nodeBuffer: NestedList.t(node)) : int => {
       let lastTokenEndLoc = state.tokenRange.endLoc;
 
       switch (getTokenValueAndRange(BufferStream.peek(buffer))) {
@@ -268,9 +272,9 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
         switch(getTokenValue(BufferStream.peek(buffer))) {
         | Some(Arrow) => {
           BufferStream.junk(buffer);
-          LinkedList.add(Node(DoubledChildCombinator), nodeBuffer);
+          NestedList.add(Node(DoubledChildCombinator), nodeBuffer);
         }
-        | _ => LinkedList.add(Node(ChildCombinator), nodeBuffer);
+        | _ => NestedList.add(Node(ChildCombinator), nodeBuffer);
         };
 
         checkCombinatorValidity();
@@ -279,14 +283,14 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
       | Some((Plus, _)) => {
         BufferStream.junk(buffer);
-        LinkedList.add(Node(NextSiblingCombinator), nodeBuffer);
+        NestedList.add(Node(NextSiblingCombinator), nodeBuffer);
         checkCombinatorValidity();
         1
       }
 
       | Some((Tilde, _)) => {
         BufferStream.junk(buffer);
-        LinkedList.add(Node(SubsequentSiblingCombinator), nodeBuffer);
+        NestedList.add(Node(SubsequentSiblingCombinator), nodeBuffer);
         checkCombinatorValidity();
         1
       }
@@ -300,7 +304,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       /* all other tokens might require a space combinator, e.g. interpolation, word... */
       | Some((_, tokenRange)) => {
         if (isSeparatedBySpaces(lastTokenEndLoc, tokenRange.startLoc)) {
-          LinkedList.add(Node(SpaceCombinator), nodeBuffer);
+          NestedList.add(Node(SpaceCombinator), nodeBuffer);
           1
         } else {
           0
@@ -311,7 +315,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
     /* parses a pseudo selector (excluding leading colon)
        then recursively continues parseSelectorLevel */
-    let rec parsePseudoSelector = (nodeBuffer: LinkedList.t(node), length: int, level: int) : LinkedList.t(node) => {
+    let rec parsePseudoSelector = (nodeBuffer: NestedList.t(node), length: int, level: int) : NestedList.t(node) => {
       /* check token after colon; this is expected to be a word or an interpolation */
       switch (getTokenValueAndRange(BufferStream.next(buffer))) {
       /* if a function is detected parse it and continue on this level afterwards */
@@ -321,10 +325,10 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
           BufferStream.junk(buffer);
 
           /* parse the deeper level and wrap the result in a function */
-          let nodes = LinkedList.concat(
+          let nodes = NestedList.concat(
             nodeBuffer,
             wrapBufferAsFunction(
-              parseSelectorLevel(LinkedList.create(), 0, level + 1),
+              parseSelectorLevel(NestedList.create(), 0, level + 1),
               ":" ++ word
             )
           );
@@ -336,7 +340,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
         }
 
         | _ => {
-          LinkedList.add(StringNode(Selector, ":" ++ word), nodeBuffer);
+          NestedList.add(StringNode(Selector, ":" ++ word), nodeBuffer);
 
           /* set tokenRange to last token (before peek) */
           state.tokenRange = tokenRange;
@@ -351,8 +355,8 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
       /* parse a pseudo selector with a selector ref */
       | Some((Interpolation(x), _)) => {
-        LinkedList.add(StringNode(Selector, ":"), nodeBuffer);
-        LinkedList.add(RefNode(SelectorRef, x), nodeBuffer);
+        NestedList.add(StringNode(Selector, ":"), nodeBuffer);
+        NestedList.add(RefNode(SelectorRef, x), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -366,7 +370,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
     }
 
     /* recursively parse all selectors by dividing the stream into functions, compounds, and lastly selectors */
-    and parseSelectorLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) : LinkedList.t(node) => {
+    and parseSelectorLevel = (nodeBuffer: NestedList.t(node), length: int, level: int) : NestedList.t(node) => {
       /* NOTE: This uses BufferStream.peek instead of BufferStream.next, as the final token cannot be put back since the MainLoop uses the LazyStream */
       switch (getTokenValue(BufferStream.next(buffer))) {
       /* parse a pseudo selector or selector function */
@@ -382,7 +386,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
       | Some(Bracket(Opening)) => {
         /* parse attribute selector and add result to the node buffer */
-        let nodes = LinkedList.concat(
+        let nodes = NestedList.concat(
           nodeBuffer,
           parseAttributeSelector()
         );
@@ -395,7 +399,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
       /* emit a universal selector and add a combinator */
       | Some(Asterisk) => {
-        LinkedList.add(Node(UniversalSelector), nodeBuffer);
+        NestedList.add(Node(UniversalSelector), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -405,7 +409,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
       /* emit a parent selector and add a combinator */
       | Some(Ampersand) => {
-        LinkedList.add(Node(ParentSelector), nodeBuffer);
+        NestedList.add(Node(ParentSelector), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -415,7 +419,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
       /* emit a selector and add a combinator */
       | Some(Word(word)) => {
-        LinkedList.add(StringNode(Selector, word), nodeBuffer);
+        NestedList.add(StringNode(Selector, word), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -426,7 +430,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
       /* emit a selector ref and add a combinator */
       | Some(Interpolation(x)) => {
-        LinkedList.add(RefNode(SelectorRef, x), nodeBuffer);
+        NestedList.add(RefNode(SelectorRef, x), nodeBuffer);
 
         /* parse possible combinators */
         let combinatorSize = parseCombinator(nodeBuffer);
@@ -438,9 +442,9 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       /* wrap the past selectors as compounds, if necessary, and continue parsing on the same level */
       | Some(Comma) => {
         let first = wrapBufferAsCompound(nodeBuffer, length);
-        let second = parseSelectorLevel(LinkedList.create(), 0, level);
+        let second = parseSelectorLevel(NestedList.create(), 0, level);
         /* concatenate the previous and the next nodes */
-        LinkedList.concat(first, second)
+        NestedList.concat(first, second)
       }
 
       /* when the parser is on a deeper level, a closed parenthesis indicates the end of a function */
@@ -454,25 +458,25 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       }
     };
 
-    parseSelectorLevel(LinkedList.create(), 0, 0);
+    parseSelectorLevel(NestedList.create(), 0, 0);
   };
 
   /* parses all value nodes recursively, including functions and compound values,
      and returns the resulting node buffer */
-  let parseValues = () : LinkedList.t(node) => {
+  let parseValues = () : NestedList.t(node) => {
     /* wraps node buffer in compound value nodes when more than one value was parsed (length > 1) */
-    let wrapBufferAsCompound = (nodeBuffer: LinkedList.t(node), length: int) => {
+    let wrapBufferAsCompound = (nodeBuffer: NestedList.t(node), length: int) => {
       if (length === 1) {
         nodeBuffer
       } else {
-        LinkedList.unshift(Node(CompoundValueStart), nodeBuffer);
-        LinkedList.add(Node(CompoundValueEnd), nodeBuffer);
+        NestedList.unshift(Node(CompoundValueStart), nodeBuffer);
+        NestedList.add(Node(CompoundValueEnd), nodeBuffer);
         nodeBuffer
       }
     };
 
     /* recursively parse all values by dividing the stream into functions, compounds, and lastly values */
-    let rec parseValueLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) => {
+    let rec parseValueLevel = (nodeBuffer: NestedList.t(node), length: int, level: int) => {
       /* NOTE: This uses BufferStream.peek instead of BufferStream.next, as the final token cannot be put back since the MainLoop uses the LazyStream */
       switch (getTokenValue(BufferStream.peek(buffer))) {
       /* turn words into values or functions */
@@ -486,17 +490,17 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
           /* parse the deeper level and wrap the result in a function */
           let innerValues = wrapBufferAsFunction(
-            parseValueLevel(LinkedList.create(), 0, level + 1),
+            parseValueLevel(NestedList.create(), 0, level + 1),
             word
           );
 
           /* continue parsing nodes on this level */
-          parseValueLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
+          parseValueLevel(NestedList.concat(nodeBuffer, innerValues), length + 1, level)
         }
 
         /* when the token is a value and not a function, emit the value */
         | _ => {
-          LinkedList.add(StringNode(Value, word), nodeBuffer);
+          NestedList.add(StringNode(Value, word), nodeBuffer);
           /* continue parsing the current level */
           parseValueLevel(nodeBuffer, length + 1, level)
         }
@@ -507,20 +511,20 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       | Some(Quote(kind)) => {
         BufferStream.junk(buffer);
         let innerValues = parseString(DeclarationValue, kind);
-        parseValueLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
+        parseValueLevel(NestedList.concat(nodeBuffer, innerValues), length + 1, level)
       }
 
       /* free strings belong to url() or calc() and can just be added as values on deeper levels */
       | Some(Str(str)) when level > 0 => {
         BufferStream.junk(buffer);
-        LinkedList.add(StringNode(Value, str), nodeBuffer);
+        NestedList.add(StringNode(Value, str), nodeBuffer);
         parseValueLevel(nodeBuffer, length + 1, level)
       }
 
       /* interpolations are parsed as "ValueRef"s */
       | Some(Interpolation(x)) => {
         BufferStream.junk(buffer);
-        LinkedList.add(RefNode(ValueRef, x), nodeBuffer);
+        NestedList.add(RefNode(ValueRef, x), nodeBuffer);
         parseValueLevel(nodeBuffer, length + 1, level)
       }
 
@@ -528,9 +532,9 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       | Some(Comma) => {
         BufferStream.junk(buffer);
         let first = wrapBufferAsCompound(nodeBuffer, length);
-        let second = parseValueLevel(LinkedList.create(), 0, level);
+        let second = parseValueLevel(NestedList.create(), 0, level);
         /* concatenate the previous and the next nodes */
-        LinkedList.concat(first, second)
+        NestedList.concat(first, second)
       }
 
       /* when the parser is on a deeper level, a closed parenthesis indicates the end of a function */
@@ -551,31 +555,31 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       }
     };
 
-    parseValueLevel(LinkedList.create(), 0, 0);
+    parseValueLevel(NestedList.create(), 0, 0);
   };
 
   /* parses all condition nodes recursively, including functions and compound conditions,
      and returns the resulting node buffer */
-  let parseConditions = () : LinkedList.t(node) => {
+  let parseConditions = () : NestedList.t(node) => {
     /* wraps node buffer in compound condition nodes when more than one value was parsed (length > 1) */
-    let wrapBufferAsCompound = (nodeBuffer: LinkedList.t(node), length: int) => {
+    let wrapBufferAsCompound = (nodeBuffer: NestedList.t(node), length: int) => {
       if (length === 1) {
         nodeBuffer
       } else {
-        LinkedList.unshift(Node(CompoundConditionStart), nodeBuffer);
-        LinkedList.add(Node(CompoundConditionEnd), nodeBuffer);
+        NestedList.unshift(Node(CompoundConditionStart), nodeBuffer);
+        NestedList.add(Node(CompoundConditionEnd), nodeBuffer);
         nodeBuffer
       }
     };
 
     /* wraps node buffer in condition group nodes */
-    let wrapBufferAsGroup = (nodeBuffer: LinkedList.t(node)) => {
-      LinkedList.unshift(Node(ConditionGroupStart), nodeBuffer);
-      LinkedList.add(Node(ConditionGroupEnd), nodeBuffer);
+    let wrapBufferAsGroup = (nodeBuffer: NestedList.t(node)) => {
+      NestedList.unshift(Node(ConditionGroupStart), nodeBuffer);
+      NestedList.add(Node(ConditionGroupEnd), nodeBuffer);
       nodeBuffer
     };
 
-    let rec parseConditionLevel = (nodeBuffer: LinkedList.t(node), length: int, level: int) => {
+    let rec parseConditionLevel = (nodeBuffer: NestedList.t(node), length: int, level: int) => {
       let token = BufferStream.next(buffer);
       let tokenValue = getTokenValue(token);
       let { endLoc } = state.tokenRange;
@@ -589,43 +593,43 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
           /* parse the deeper level and wrap the result in a function */
           let innerValues = wrapBufferAsFunction(
-            parseConditionLevel(LinkedList.create(), 0, level + 1),
+            parseConditionLevel(NestedList.create(), 0, level + 1),
             word
           );
 
           /* continue parsing nodes on this level */
-          parseConditionLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
+          parseConditionLevel(NestedList.concat(nodeBuffer, innerValues), length + 1, level)
         }
         /* add condition and continue parsing */
         | _ => {
-          LinkedList.add(StringNode(Condition, word), nodeBuffer);
+          NestedList.add(StringNode(Condition, word), nodeBuffer);
           parseConditionLevel(nodeBuffer, length + 1, level)
         }
         }
       }
 
       | Some(Interpolation(x)) => {
-        LinkedList.add(RefNode(ConditionRef, x), nodeBuffer);
+        NestedList.add(RefNode(ConditionRef, x), nodeBuffer);
         parseConditionLevel(nodeBuffer, length + 1, level)
       }
 
       /* detect quotes and start parsing strings */
       | Some(Quote(kind)) => {
         let innerValues = parseString(ConditionLiteral, kind);
-        parseConditionLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
+        parseConditionLevel(NestedList.concat(nodeBuffer, innerValues), length + 1, level)
       }
 
       /* free strings belong to url() and can just be added as conditions on deeper levels */
       | Some(Str(str)) when level > 0 => {
-        LinkedList.add(StringNode(Condition, str), nodeBuffer);
+        NestedList.add(StringNode(Condition, str), nodeBuffer);
         parseConditionLevel(nodeBuffer, length + 1, level)
       }
 
       | Some(Comma) => {
         let first = wrapBufferAsCompound(nodeBuffer, length);
-        let second = parseConditionLevel(LinkedList.create(), 0, level);
+        let second = parseConditionLevel(NestedList.create(), 0, level);
         /* concatenate previous and the next nodes */
-        LinkedList.concat(first, second)
+        NestedList.concat(first, second)
       }
 
       /* parse the deeper level as a group or declaration */
@@ -635,9 +639,9 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
         /* detect word/interpolation and colon */
         switch (getTokenValue(propertyToken), getTokenValue(BufferStream.peek(buffer))) {
         | (Some(Word(_) | Interpolation(_)) as propertyTokenValue, Some(Colon)) => {
-          let innerValues = LinkedList.create();
+          let innerValues = NestedList.create();
 
-          LinkedList.add(switch (propertyTokenValue) {
+          NestedList.add(switch (propertyTokenValue) {
           | Some(Word(word)) => StringNode(Property, word)
           | Some(Interpolation(x)) => RefNode(PropertyRef, x)
           | _ => raise(ParserError(unexpected_msg("token", "at-rule group") ++ expected_msg("property"), state.tokenRange))
@@ -645,7 +649,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
           BufferStream.junk(buffer); /* discard colon */
 
-          LinkedList.add(switch (getTokenValue(BufferStream.next(buffer))) {
+          NestedList.add(switch (getTokenValue(BufferStream.next(buffer))) {
           | Some(Word(word)) => StringNode(Value, word)
           | Some(Interpolation(x)) => RefNode(ValueRef, x)
           | _ => raise(ParserError(unexpected_msg("token", "at-rule group") ++ expected_msg("singular value"), state.tokenRange))
@@ -657,7 +661,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
           };
 
           /* wrap inner values in a group and continue parsing nodes on this level */
-          parseConditionLevel(LinkedList.concat(nodeBuffer, wrapBufferAsGroup(innerValues)), length + 1, level)
+          parseConditionLevel(NestedList.concat(nodeBuffer, wrapBufferAsGroup(innerValues)), length + 1, level)
         }
 
         | _ => {
@@ -665,10 +669,10 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
           BufferStream.putOption(propertyToken, buffer);
 
           /* parse the deeper level and wrap the result in a group */
-          let innerValues = wrapBufferAsGroup(parseConditionLevel(LinkedList.create(), 0, level + 1));
+          let innerValues = wrapBufferAsGroup(parseConditionLevel(NestedList.create(), 0, level + 1));
 
           /* continue parsing nodes on this level */
-          parseConditionLevel(LinkedList.concat(nodeBuffer, innerValues), length + 1, level)
+          parseConditionLevel(NestedList.concat(nodeBuffer, innerValues), length + 1, level)
         }
         }
       }
@@ -684,7 +688,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
       }
     };
 
-    parseConditionLevel(LinkedList.create(), 0, 0)
+    parseConditionLevel(NestedList.create(), 0, 0)
   };
 
   let propertyLoop = () : node => {
@@ -704,6 +708,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
     /* preparse values and start the buffer loop to consume & emit them */
     state.nodeBuffer = parseValues();
+    state.nodeIterator = NestedList.createIterator(state.nodeBuffer);
     state.mode = BufferLoop;
 
     node
@@ -840,7 +845,7 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
   /* emits nodes from a preparsed buffer */
   and bufferLoop = () : node => {
     /* remove a node from the buffered list */
-    switch (LinkedList.take(state.nodeBuffer)) {
+    switch (NestedList.next(state.nodeIterator)) {
       /* when the end of the buffered nodes is reached, return to the main loop */
       | None => {
         state.mode = MainLoop;
@@ -854,12 +859,14 @@ let parser = (s: Lexer.lexerStream) : nodeStream => {
 
   let selectorLoop = () : node => {
     state.nodeBuffer = parseSelectors();
+    state.nodeIterator = NestedList.createIterator(state.nodeBuffer);
     state.mode = BufferLoop;
     bufferLoop()
   };
 
   let conditionLoop = () : node => {
     state.nodeBuffer = parseConditions();
+    state.nodeIterator = NestedList.createIterator(state.nodeBuffer);
     state.mode = BufferLoop;
     bufferLoop()
   };

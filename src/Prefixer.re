@@ -25,22 +25,23 @@ type state = {
   /* prefixed properties for the current declaration that is being prefixed */
   mutable prefixedProperties: list(string),
   /* current buffer of nodes */
-  mutable nodeBuffer: LinkedList.t(node),
+  mutable nodeBuffer: NestedList.t(node),
   /* current pointer to a linked list node */
-  mutable bufferPointer: option(LinkedList.elementNode(node))
+  mutable bufferPointer: NestedList.iterator(node)
 };
 
 let prefixer = (s: nodeStream) => {
+  let nodeBuffer = NestedList.create();
   let state = {
     mode: MainLoop,
     prefixedProperties: [],
-    nodeBuffer: LinkedList.create(),
-    bufferPointer: None
+    nodeBuffer,
+    bufferPointer: NestedList.createIterator(nodeBuffer)
   };
 
   /* collect all value nodes of the current declaration */
   let takeValueNodes = () => {
-    let rec explode = (valueNodes: LinkedList.t(node)) => {
+    let rec explode = (valueNodes: NestedList.t(node)) => {
       switch (LazyStream.peek(s)) {
         | Some(StringNode(Property, _))
         | Some(RefNode(PropertyRef, _))
@@ -48,7 +49,7 @@ let prefixer = (s: nodeStream) => {
 
         | Some(node) => {
           LazyStream.junk(s);
-          LinkedList.add(node, valueNodes);
+          NestedList.add(node, valueNodes);
           explode(valueNodes)
         }
 
@@ -56,7 +57,7 @@ let prefixer = (s: nodeStream) => {
       }
     };
 
-    explode(LinkedList.create())
+    explode(NestedList.create())
   };
 
   /* get a prefix for a property and start the PrefixPropertyLoop */
@@ -88,7 +89,7 @@ let prefixer = (s: nodeStream) => {
     switch (state.prefixedProperties) {
       | [prop, ...rest] => {
         state.prefixedProperties = rest;
-        state.bufferPointer = state.nodeBuffer.head;
+        state.bufferPointer = NestedList.createIterator(state.nodeBuffer);
         state.mode = BufferLoop;
 
         Some(StringNode(Property, prop))
@@ -100,15 +101,11 @@ let prefixer = (s: nodeStream) => {
     }
   };
 
-  let bufferLoop = () : option(node) => {
-    switch (state.bufferPointer) {
-    | Some(element) => {
-      state.bufferPointer = element.next;
-      Some(element.value)
-    }
+  let bufferLoop = () : option(node) =>
+    switch (NestedList.next(state.bufferPointer)) {
+    | Some(_) as x => x
     | None => prefixPropertyLoop()
-    }
-  };
+    };
 
   let next: [@bs] (unit => option(node)) = [@bs] (() => {
     switch state.mode {

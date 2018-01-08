@@ -1,7 +1,7 @@
 /* A wrapper around LazyStream that features a arbitrarily large buffer */
 type t('a);
 
-/* adds a LinkedList buffer to a LazyStream */
+/* adds a NestedList buffer to a LazyStream */
 let from: LazyStream.t('a)=> t('a);
 /* take next value from buffer and fall back to the LazyStream */
 let next: t('a) => option('a);
