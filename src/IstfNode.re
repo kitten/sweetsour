@@ -141,11 +141,16 @@ let nodeFromJs = (nodeRaw: (int, rawNodePayload)) : node => {
   );
 
   switch (tuple) {
-  | (Some(x), _, _, _, _) => RuleKindNode(x, [%raw {| nodeRaw[1] |}])
-  | (_, Some(x), _, _, _) => AttributeKindNode(x, [%raw {| nodeRaw[1] |}])
+  | (Some(x), _, _, _, _) =>
+    RuleKindNode(x, [%raw {| ruleKindFromJs(nodeRaw[1])[0] |}])
+
+  | (_, Some(x), _, _, _) =>
+    AttributeKindNode(x, [%raw {| attributeSelectorKindFromJs(nodeRaw[1])[0] |}])
+
   | (_, _, Some(x), _, _) => RefNode(x, [%raw {| nodeRaw[1] |}])
   | (_, _, _, Some(x), _) => StringNode(x, [%raw {| nodeRaw[1] |}])
   | (_, _, _, _, Some(x)) => Node(x)
+
   | _ => raise(ConversionError("Serialised node data was not recognised"))
   }
 };
