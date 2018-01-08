@@ -12,3 +12,12 @@ let parse = (strings: array(string), interpolations: array(interpolation)) : arr
     |> Prefixer.prefixer
     |> Output.output
     |> LazyStream.toArray;
+
+let stringOfRef = [@bs] (x: interpolation) => "";
+
+let stringify = (strings: array(string), interpolations: array(interpolation)) : string =>
+  Input.input(strings, interpolations)
+    |> Lexer.lexer
+    |> Parser.parser
+    |> Prefixer.prefixer
+    |> Stringifier.stringifier(~stringOfRef=stringOfRef);
