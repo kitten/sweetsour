@@ -23,9 +23,21 @@ let add = (x: 'a, nestedList: t('a)) => {
   nestedList.tail = empty;
 };
 
+let appendBranch = (concatList: t('a), nestedList: t('a)) => {
+  let empty = ref(Empty);
+  nestedList.size = nestedList.size + concatList.size;
+  nestedList.tail := Branch(concatList.head, empty);
+  nestedList.tail = empty;
+};
+
 let unshift = (x: 'a, nestedList: t('a)) => {
   nestedList.size = nestedList.size + 1;
   nestedList.head = ref(Value(x, nestedList.head))
+};
+
+let prependBranch = (concatList: t('a), nestedList: t('a)) => {
+  nestedList.size = nestedList.size + concatList.size;
+  nestedList.head = ref(Branch(concatList.head, nestedList.head));
 };
 
 let concat = (first: t('a), second: t('a)) : t('a) =>

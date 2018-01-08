@@ -157,4 +157,50 @@ describe("NestedList", () => {
         == [ None, Some("test 1"), Some("test 2"), None, Some("test 3"), Some("test 4"), None ]
     });
   });
+
+  describe("appendBranch", () => {
+    open Expect;
+    open! Expect.Operators;
+
+    it("adds an 'infix' list to the list", () => {
+      let x = create();
+      add("test 1", x);
+
+      let infix = create();
+      add("infix 1", infix);
+      add("infix 2", infix);
+
+      appendBranch(infix, x);
+
+      add("test 2", x);
+
+      let iterator = createIterator(x);
+
+      expect([ next(iterator), next(iterator), next(iterator), next(iterator), next(iterator) ])
+        == [ Some("test 1"), Some("infix 1"), Some("infix 2"), Some("test 2"), None ]
+    });
+  });
+
+  describe("prependBranch", () => {
+    open Expect;
+    open! Expect.Operators;
+
+    it("adds a 'precursor' list to the list", () => {
+      let x = create();
+      add("test 1", x);
+
+      let infix = create();
+      add("infix 1", infix);
+      add("infix 2", infix);
+
+      prependBranch(infix, x);
+
+      unshift("test 2", x);
+
+      let iterator = createIterator(x);
+
+      expect([ next(iterator), next(iterator), next(iterator), next(iterator), next(iterator) ])
+        == [ Some("test 2"), Some("infix 1"), Some("infix 2"), Some("test 1"), None ]
+    });
+  });
 });
