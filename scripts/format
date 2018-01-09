@@ -13,7 +13,7 @@ if (process.argv.length <= 2) {
 const filesToFormat = process.argv.slice(2);
 let filesThatAreInvalid = [];
 
-const refmtBinary = path.join(__dirname, '../node_modules/bs-platform/bin/refmt3.exe');
+const refmtBinary = path.join(__dirname, '../node_modules/bs-platform/lib/refmt3.exe');
 const bsconfig = path.join(__dirname, '../bsconfig.json');
 
 const format = files => {
