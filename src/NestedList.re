@@ -35,10 +35,34 @@ let unshift = (x: 'a, nestedList: t('a)) => {
   nestedList.head = ref(Value(x, nestedList.head))
 };
 
-let prependBranch = (concatList: t('a), nestedList: t('a)) => {
+let unshiftSecond = (x: 'a, nestedList: t('a)) =>
+  switch (nestedList.head^) {
+  | Value(first, secondNode) => {
+    nestedList.size = nestedList.size + 1;
+    nestedList.head = ref(Value(
+      first,
+      ref(Value(x, secondNode))
+    ));
+  }
+  | _ => ()
+  };
+
+let unshiftBranch = (concatList: t('a), nestedList: t('a)) => {
   nestedList.size = nestedList.size + concatList.size;
   nestedList.head = ref(Branch(concatList.head, nestedList.head));
 };
+
+let unshiftBranchSecond = (concatList: t('a), nestedList: t('a)) =>
+  switch (nestedList.head^) {
+  | Value(first, secondNode) => {
+    nestedList.size = nestedList.size + concatList.size;
+    nestedList.head = ref(Value(
+      first,
+      ref(Branch(concatList.head, secondNode))
+    ));
+  }
+  | _ => ()
+  };
 
 let concat = (first: t('a), second: t('a)) : t('a) =>
   switch (first.head^, second.head^) {

@@ -24,7 +24,7 @@ describe("NestedList", () => {
     open Expect;
     open! Expect.Operators;
 
-    it("pushes values onto the end of a linked list", () => {
+    it("pushes values onto the beginning of a linked list", () => {
       let testList = create();
       unshift("test 1", testList);
       unshift("test 2", testList);
@@ -33,6 +33,23 @@ describe("NestedList", () => {
 
       expect([ next(iterator), next(iterator), next(iterator) ])
         == [ Some("test 2"), Some("test 1"), None ]
+    });
+  });
+
+  describe("unshiftSecond & next", () => {
+    open Expect;
+    open! Expect.Operators;
+
+    it("pushes values onto the second node at the beginning of a linked list", () => {
+      let testList = create();
+      add("test 1", testList);
+      add("test 3", testList);
+      unshiftSecond("test 2", testList);
+
+      let iterator = createIterator(testList);
+
+      expect([ next(iterator), next(iterator), next(iterator), next(iterator) ])
+        == [ Some("test 1"), Some("test 2"), Some("test 3"), None ]
     });
   });
 
@@ -193,7 +210,7 @@ describe("NestedList", () => {
     });
   });
 
-  describe("prependBranch", () => {
+  describe("unshiftBranch", () => {
     open Expect;
     open! Expect.Operators;
 
@@ -205,7 +222,7 @@ describe("NestedList", () => {
       add("infix 1", infix);
       add("infix 2", infix);
 
-      prependBranch(infix, x);
+      unshiftBranch(infix, x);
 
       unshift("test 2", x);
 

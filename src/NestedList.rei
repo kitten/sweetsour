@@ -14,8 +14,12 @@ let add: ('a, t('a)) => unit;
 let appendBranch: (t('a), t('a)) => unit;
 /* add a new value to the beginning of the NestedList */
 let unshift: ('a, t('a)) => unit;
+/* add a new value after the first value of the NestedList */
+let unshiftSecond: ('a, t('a)) => unit;
 /* prepends a branch to the NestedList that traverses concatList before the rest of nestedList */
-let prependBranch: (t('a), t('a)) => unit;
+let unshiftBranch: (t('a), t('a)) => unit;
+/* prepends a branch to the NestedList after the first value */
+let unshiftBranchSecond: (t('a), t('a)) => unit;
 /* mutates the first NestedList to append the second's node chain */
 let concat: (t('a), t('a)) => t('a);
 /* returns size of NestedList */
