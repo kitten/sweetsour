@@ -160,6 +160,11 @@ let flattener = (s: nodeStream) : nodeStream => {
         parseRuleEnd()
       }
 
+      | Some(RuleKindNode(RuleStart, StyleRule)) => {
+        state.isOutsideStyleRule = true;
+        state.mode = MainLoop;
+      }
+
       | Some(_) => state.mode = StyleRuleStartLoop;
       | None => state.mode = EndLoop;
       }
