@@ -109,8 +109,7 @@ let printer = (s: nodeStream) => {
       "[COMPOUND_CONDITION_END]"
     }
     | Node(ConditionGroupStart) => {
-      indentation := indentation^ - 1;
-      indentImmediate := indentImmediate^ - 1;
+      indentation := indentation^ + 1;
       "[CONDITION_GROUP_START]"
     }
     | Node(ConditionGroupEnd) => {
