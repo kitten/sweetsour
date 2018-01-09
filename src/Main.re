@@ -9,6 +9,7 @@ let parse = (strings: array(string), interpolations: array(interpolation)) : arr
   Input.input(strings, interpolations)
     |> Lexer.lexer
     |> Parser.parser
+    |> Flattener.flattener
     |> Prefixer.prefixer
     |> Output.output
     |> LazyStream.toArray;

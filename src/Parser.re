@@ -1,5 +1,4 @@
 open Common;
-
 open IstfNode;
 
 /* an error raised by the parser contains a message and a line number */
