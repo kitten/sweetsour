@@ -135,7 +135,7 @@ describe("Flattener", () => {
     });
 
     /* Flatten: `@media screen { div { color: papayawhip; }}` */
-    it("flattens nested selectors containing declarations", () => {
+    it("flattens rule inside at-rule", () => {
       expect(flatten([|
         RuleKindNode(RuleStart, MediaRule),
         StringNode(Condition, "screen"),
@@ -161,5 +161,116 @@ describe("Flattener", () => {
       |];
     });
 
+    /* Flatten: `div { @media screen { color: papayawhip; }}` */
+    it("flattens at-rule inside rule", () => {
+      expect(flatten([|
+        RuleKindNode(RuleStart, MediaRule),
+        StringNode(Condition, "screen"),
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, "div"),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd),
+        Node(RuleEnd)
+      |])) == [|
+        RuleKindNode(RuleStart, MediaRule),
+        StringNode(Condition, "screen"),
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        Node(ParentSelector),
+        Node(SpaceCombinator),
+        StringNode(Selector, "div"),
+        Node(CompoundSelectorEnd),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd),
+        Node(RuleEnd)
+      |];
+    });
+
+    /* Flatten: `color: papayawhip;` */
+    it("flattens declarations only", () => {
+      expect(flatten([|
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip")
+      |])) == [|
+        RuleKindNode(RuleStart, StyleRule),
+        Node(ParentSelector),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd)
+      |];
+    });
+
+    /* Flatten: `div { color: papayawhip; } div { color: papayawhip; }` */
+    it("flattens declarations only", () => {
+      expect(flatten([|
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, "div"),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd),
+
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, "div"),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd)
+      |])) == [|
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        Node(ParentSelector),
+        Node(SpaceCombinator),
+        StringNode(Selector, "div"),
+        Node(CompoundSelectorEnd),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd),
+
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        Node(ParentSelector),
+        Node(SpaceCombinator),
+        StringNode(Selector, "div"),
+        Node(CompoundSelectorEnd),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd)
+      |];
+    });
+
+    /* Flatten: `div { @media screen { .test { color: papayawhip; }}}` */
+    it("flattens rule inside at-rule inside rule", () => {
+      expect(flatten([|
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, "div"),
+        RuleKindNode(RuleStart, MediaRule),
+        StringNode(Condition, "screen"),
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, ".test"),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd),
+        Node(RuleEnd),
+        Node(RuleEnd)
+      |])) == [|
+        RuleKindNode(RuleStart, MediaRule),
+        StringNode(Condition, "screen"),
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        Node(CompoundSelectorStart),
+        Node(ParentSelector),
+        Node(SpaceCombinator),
+        StringNode(Selector, "div"),
+        Node(CompoundSelectorEnd),
+        Node(SpaceCombinator),
+        StringNode(Selector, ".test"),
+        Node(CompoundSelectorEnd),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd),
+        Node(RuleEnd)
+      |];
+    });
   });
 });
