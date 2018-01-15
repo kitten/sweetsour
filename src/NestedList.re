@@ -77,13 +77,11 @@ let concat = (first: t('a), second: t('a)) : t('a) =>
   };
 
 type iterator('a) = {
-  nestedList: t('a),
   mutable node: ref(nestedListNode('a)),
   mutable branches: list(ref(nestedListNode('a)))
 };
 
 let createIterator = (nestedList: t('a)) : iterator('a) => {
-  nestedList,
   node: nestedList.head,
   branches: []
 };
