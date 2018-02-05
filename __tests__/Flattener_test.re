@@ -70,6 +70,39 @@ describe("Flattener", () => {
       |];
     });
 
+    /* Flatten: `span, div { .test { color: papayawhip; }}` */
+    it("flattens chained selectors", () => {
+      expect(flatten([|
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, "span"),
+        StringNode(Selector, "div"),
+        RuleKindNode(RuleStart, StyleRule),
+        StringNode(Selector, ".test"),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd),
+        Node(RuleEnd)
+      |])) == [|
+        RuleKindNode(RuleStart, StyleRule),
+        Node(CompoundSelectorStart),
+        Node(ParentSelector),
+        Node(SpaceCombinator),
+        StringNode(Selector, "span"),
+        Node(SpaceCombinator),
+        StringNode(Selector, ".test"),
+        Node(CompoundSelectorEnd),
+        Node(ParentSelector),
+        Node(SpaceCombinator),
+        StringNode(Selector, "div"),
+        Node(SpaceCombinator),
+        StringNode(Selector, ".test"),
+        Node(CompoundSelectorEnd),
+        StringNode(Property, "color"),
+        StringNode(Value, "papayawhip"),
+        Node(RuleEnd)
+      |];
+    });
+
     /* Flatten: `> div { color: papayawhip; }` */
     it("flattens single-selectors with leading combinator", () => {
       expect(flatten([|
