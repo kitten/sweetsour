@@ -874,17 +874,17 @@ bs-jest@^0.3.2:
   dependencies:
     jest "^22.0.4"
 
-bs-loader@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/bs-loader/-/bs-loader-2.0.0.tgz#39fcbecb6fdd18ba9a305d01bf5b599548a2372c"
+bs-loader@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/bs-loader/-/bs-loader-2.0.1.tgz#e72e3cf0f00f0f41affbf51e34860d1212692b6d"
   dependencies:
     bsb-js "^1.0.0"
     loader-utils "^1.1.0"
     read-bsconfig "^1.0.1"
 
-bs-platform@^2.1.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-2.1.0.tgz#63560ff8f7142c9c0631559df1c35590b9f6d8b2"
+bs-platform@^2.2.3:
+  version "2.2.3"
+  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-2.2.3.tgz#d905ae10a5f3621e6a739041dfa0b58483a2174f"
 
 bsb-js@^1.0.0:
   version "1.0.1"
