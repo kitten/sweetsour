@@ -1,4 +1,4 @@
-import { join } from 'path';
+import { basename, dirname, join } from 'path';
 
 import nodeResolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
@@ -44,30 +44,36 @@ const prodPlugins = [
   filesize()
 ];
 
+const basePkgName = basename(pkg.name);
+const pkgName = `Sweetsour${basePkgName[0].toUpperCase()}${basePkgName.slice(1)}`;
+
 const withBase = x => Object.assign({}, x, {
-  input: './index.js',
-  name: pkg.name,
+  input: pkg.source,
+  name: pkgName,
   exports: 'named',
   useStrict: false,
   pureExternalImports: true
 });
 
+const umdDir = dirname(pkg['umd:main'])
+const umdName = basename(pkg['umd:main'], '.js');
+
 export default [
   {
     output: [{
-      file: 'dist/sweetsour-parser.min.js',
+      file: join(umdDir, `${umdName}.min.js`),
       format: 'umd'
     }],
     plugins: prodPlugins
   }, {
     output: [{
-      file: 'dist/sweetsour-parser.js',
+      file: pkg['umd:main'],
       format: 'umd'
     }, {
-      file: 'dist/sweetsour-parser.es.js',
+      file: pkg.module,
       format: 'es'
     }, {
-      file: 'dist/sweetsour-parser.cjs.js',
+      file: pkg.main,
       format: 'cjs'
     }],
     plugins

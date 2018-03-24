@@ -1,6 +1,5 @@
 type nestedListNode('a) =
   | Value('a, ref(nestedListNode('a)))
-  | Branch(ref(nestedListNode('a)), ref(nestedListNode('a)))
   | Empty;
 
 type t('a) = {
@@ -23,21 +22,9 @@ let add = (x: 'a, nestedList: t('a)) => {
   nestedList.tail = empty;
 };
 
-let appendBranch = (concatList: t('a), nestedList: t('a)) => {
-  let empty = ref(Empty);
-  nestedList.size = nestedList.size + concatList.size;
-  nestedList.tail := Branch(concatList.head, empty);
-  nestedList.tail = empty;
-};
-
 let unshift = (x: 'a, nestedList: t('a)) => {
   nestedList.size = nestedList.size + 1;
   nestedList.head = ref(Value(x, nestedList.head))
-};
-
-let prependBranch = (concatList: t('a), nestedList: t('a)) => {
-  nestedList.size = nestedList.size + concatList.size;
-  nestedList.head = ref(Branch(concatList.head, nestedList.head));
 };
 
 let concat = (first: t('a), second: t('a)) : t('a) =>
@@ -54,14 +41,12 @@ let concat = (first: t('a), second: t('a)) : t('a) =>
 
 type iterator('a) = {
   nestedList: t('a),
-  mutable node: ref(nestedListNode('a)),
-  mutable branches: list(ref(nestedListNode('a)))
+  mutable node: ref(nestedListNode('a))
 };
 
 let createIterator = (nestedList: t('a)) : iterator('a) => {
   nestedList,
-  node: nestedList.head,
-  branches: []
+  node: nestedList.head
 };
 
 let internal_next = (iterator: iterator('a), ~shouldMutate: bool) : option('a) => {
@@ -74,21 +59,7 @@ let internal_next = (iterator: iterator('a), ~shouldMutate: bool) : option('a) =
 
       Some(x)
     }
-    | Branch(a, b) => {
-      iterator.node = a;
-      iterator.branches = [b, ...iterator.branches];
-      iterate(a^)
-    }
-    | Empty => {
-      switch (iterator.branches) {
-      | [b, ...branches] => {
-        iterator.node = b;
-        iterator.branches = branches;
-        iterate(b^)
-      }
-      | [] => None
-      }
-    }
+    | Empty => None
     };
 
   iterate(iterator.node^)

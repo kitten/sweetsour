@@ -1,9 +1,11 @@
 {
-  "name": "sweetsour",
+  "name": "@sweetsour/parser",
   "version": "0.1.0",
-  "main": "dist/sweetsour-parser.cjs.js",
-  "jsnext:main": "dist/sweetsour-parser.es.js",
-  "module": "dist/sweetsour-parser.es.js",
+  "source": "./index.js",
+  "umd:main": "./dist/sweetsour-parser.js",
+  "main": "./dist/sweetsour-parser.cjs.js",
+  "jsnext:main": "./dist/sweetsour-parser.es.js",
+  "module": "./dist/sweetsour-parser.es.js",
   "scripts": {
     "clean": "bsb -clean-world",
     "build": "bsb -make-world",
