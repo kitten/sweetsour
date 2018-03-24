@@ -11,7 +11,6 @@ describe("Normalize Test Suite", () => {
     let output = Input.input([| css |], [||])
       |> Lexer.lexer
       |> Parser.parser
-      |> Prefixer.prefixer
       |> Printer.printer
       |> Printer.printToStr;
 
