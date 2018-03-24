@@ -14,7 +14,8 @@
     "test:watch": "jest --watch",
     "precommit": "lint-staged",
     "lint-staged": "lint-staged",
-    "dist": "rollup -c ../../rollup.config.js"
+    "dist": "rollup -c ../../rollup.config.js",
+    "prepublishOnly": "run-s build dist"
   },
   "keywords": [
     "bucklescript",
