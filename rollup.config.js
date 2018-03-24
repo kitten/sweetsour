@@ -41,7 +41,7 @@ const prodPlugins = [
 ];
 
 const withBase = x => Object.assign({}, x, {
-  input: './lib/es6/src/Main.js',
+  input: './index.js',
   name: 'SweetsourParser',
   exports: 'named',
   useStrict: false,

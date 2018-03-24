@@ -1,14 +1,15 @@
 open Common;
 
-let tokenise = (strings: array(string), interpolations: array(interpolation)) : array(Lexer.token) =>
+let tokeniseTemplate = (strings: array(string), interpolations: array(interpolation)) : Lexer.lexerStream =>
   Input.input(strings, interpolations)
-    |> Lexer.lexer
-    |> LazyStream.toArray;
+    |> Lexer.lexer;
 
-let parse = (strings: array(string), interpolations: array(interpolation)) : array((int, IstfNode.rawNodePayload)) =>
+let parseTemplate = (strings: array(string), interpolations: array(interpolation)) : IstfNode.nodeStream =>
   Input.input(strings, interpolations)
     |> Lexer.lexer
-    |> Parser.parser
-    |> Prefixer.prefixer
+    |> Parser.parser;
+
+let nodeStreamToOutput = (stream: IstfNode.nodeStream) : array((int, IstfNode.rawNodePayload)) =>
+  stream
     |> Output.output
     |> LazyStream.toArray;
