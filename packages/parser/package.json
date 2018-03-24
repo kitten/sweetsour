@@ -1,6 +1,6 @@
 {
   "name": "@sweetsour/parser",
-  "version": "0.1.0",
+  "version": "0.1.0-1",
   "source": "./index.js",
   "umd:main": "./dist/sweetsour-parser.js",
   "main": "./dist/sweetsour-parser.cjs.js",
@@ -25,6 +25,9 @@
     "parser",
     "css-in-js"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT",
   "devDependencies": {
     "babel-core": "^6.26.0",
