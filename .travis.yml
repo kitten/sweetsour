@@ -10,6 +10,7 @@ notifications:
   email:
     on_failure: change
 script:
+  - yarn bootstrap
   - yarn build
   - yarn dist
   - yarn test

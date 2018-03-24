@@ -6,6 +6,10 @@ import babel from 'rollup-plugin-babel';
 import uglify from 'rollup-plugin-uglify-es';
 import es3 from 'rollup-plugin-es3';
 import filesize from 'rollup-plugin-filesize';
+import alias from 'rollup-plugin-alias';
+import { rollup as lernaAliases } from 'lerna-alias';
+
+const pkg = require(join(process.cwd(), './package.json'))
 
 const plugins = [
   commonjs({
@@ -19,15 +23,15 @@ const plugins = [
   babel({
     babelrc: false,
     plugins: [
-      join(__dirname, './babel/renameErrors.js'),
-      'babel-plugin-closure-elimination',
-      'babel-plugin-minify-dead-code-elimination'
+      require.resolve('babel-plugin-closure-elimination'),
+      require.resolve('babel-plugin-minify-dead-code-elimination')
     ]
   })
 ];
 
 const prodPlugins = [
   ...plugins,
+  alias(lernaAliases()),
   uglify({
     toplevel: true,
     mangle: {
@@ -42,7 +46,7 @@ const prodPlugins = [
 
 const withBase = x => Object.assign({}, x, {
   input: './index.js',
-  name: 'SweetsourParser',
+  name: pkg.name,
   exports: 'named',
   useStrict: false,
   pureExternalImports: true
