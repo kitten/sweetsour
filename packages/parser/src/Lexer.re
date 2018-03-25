@@ -120,25 +120,19 @@ let lexer = (input: Input.inputStream) => {
 
   /* recognise all chars that are valid starts of a word */
   let isWordStartChar = (c: char) => {
-    switch c {
-    | 'a'..'z'
-    | 'A'..'Z'
-    | '0'..'9'
-    | '#'
-    | '.' => true
-    | '-' => true
-    | _ => false
-    }
+    c === '#' ||
+    c === '.' ||
+    c === '-' ||
+    (c >= 'a' && c <= 'z') ||
+    (c >= 'A' && c <= 'Z') ||
+    (c >= '0' && c <= '9')
   };
 
   /* recognise all chars that are valid hex digits */
   let isHexDigitChar = (c: char) => {
-    switch c {
-    | 'a'..'f'
-    | 'A'..'F'
-    | '0'..'9' => true
-    | _ => false
-    }
+    (c >= 'a' && c <= 'f') ||
+    (c >= 'A' && c <= 'F') ||
+    (c >= '0' && c <= '9')
   };
 
   /* skip over all chars until end of comment is reached */
