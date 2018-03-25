@@ -1,0 +1,15 @@
+{
+  "name": "@sweetsour/parser-perf",
+  "version": "0.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "node ./index.js"
+  },
+  "dependencies": {
+    "benchmark": "^2.1.4",
+    "stylis": "^3.5.0",
+    "stylis-rule-sheet": "^0.0.10"
+  }
+}
