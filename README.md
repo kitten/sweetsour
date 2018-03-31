@@ -60,7 +60,7 @@ The goals of Sweetsour include:
 - Creating a parser able to parse CSS including interpolations
 - Allowing optional runtime-only support i.e. using Sweetsour in the browser
 
-As opposed to other project which are fairly similar, like for instance PostCSS,
+As opposed to other projects which are fairly similar, like for instance PostCSS,
 ISTF allows the parser to leave markers for interpolations (typically JS / Babel AST)
 right inside of the rest of the CSS nodes.
 The format also breaks CSS down even further than PostCSS, providing tokens for each
@@ -68,7 +68,7 @@ language feature like at rules, functions, values, attribute selectors, and more
 This is achieved by splitting the input up into individual characters and interleaving
 them with the interpolation input.
 
-The project will provide a couple of core parts:
+The project will provide a few core parts:
 
 - Parser
 - Transform tool accepting plugins
