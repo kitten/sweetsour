@@ -1,0 +1,20 @@
+{
+  "name": "@sweetsour/istf-utils",
+  "version": "0.1.0",
+  "description": "Utilities for dealing with ISTF nodes and values",
+  "files": [
+    "src"
+  ],
+  "main": "src/index.js",
+  "keywords": [
+    "sweetsour",
+    "ISTF",
+    "CSS",
+    "parser",
+    "css-in-js"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@sweetsour/babel-plugin",
+  "version": "0.1.0",
+  "description": "A babel preprocessing plugin for sweetsour, parsing styled-components expressions",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "jest"
+  },
+  "main": "src/index.js",
+  "keywords": [
+    "babel",
+    "sweetsour",
+    "ISTF",
+    "CSS",
+    "parser",
+    "css-in-js"
+  ],
+  "dependencies": {
+    "@sweetsour/istf-utils": "0.1.0",
+    "@sweetsour/parser": "0.1.0-1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "babel-plugin-tester": "^5.4.0",
+    "jest": "^23.1.0"
+  }
+}
