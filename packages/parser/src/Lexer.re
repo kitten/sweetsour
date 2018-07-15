@@ -64,9 +64,8 @@ let rec lexWord = (
 ): (LexEnv.t, string) => {
   switch (input) {
   | S_CHAR('\\') => {
-    let str = str ++ "\\";
     let (env, escaped) = lexEscaped(LexEnv.source(env));
-    lexWord((env, input), str ++ escaped)
+    lexWord(LexEnv.source(env), str ++ "\\" ++ escaped)
   }
 
   | S_CHAR(('%' | '-' | '_') as c)
@@ -99,7 +98,7 @@ let rec lexString = (
     };
 
     if (str === "") {
-      Token(env, T_SYMBOL_QUOTE(quote))
+      Token(LexEnv.switchMode(Main, env), T_SYMBOL_QUOTE(quote))
     } else {
       let env = LexEnv.switchMode(StrEnd(quote), env);
       Token(env, T_LITERAL_STRING(str))
@@ -173,7 +172,7 @@ let lexMainChar = (env: LexEnv.t, x: char): result => {
   | ' ' => Continue(env)
 
   | '@' => {
-    let (env, res) = lexWord(LexEnv.source(env), "@");
+    let (env, res) = lexWord(LexEnv.source(env), "");
     Token(env, T_LITERAL_ATWORD(res))
   }
 
@@ -200,7 +199,8 @@ let lexMain = (env: LexEnv.t, x: Source.input) => {
   }
 };
 
-let lexStringEnd = (env: LexEnv.t, quote: Token.quote) => {
+let lexStringEnd = (env: LexEnv.t, input: Source.input, quote: Token.quote) => {
+  let env = LexEnv.buffer(input, env);
   Token(LexEnv.switchMode(Main, env), T_SYMBOL_QUOTE(quote));
 };
 
@@ -212,7 +212,7 @@ let lex = (env: LexEnv.t): (LexEnv.t, Token.t) => {
     let output = switch (mode) {
     | Main => lexMain(env, input)
     | Str(c) => lexString((env, input), c, "")
-    | StrEnd(q) => lexStringEnd(env, q)
+    | StrEnd(q) => lexStringEnd(env, input, q)
     };
 
     switch (output) {
