@@ -4,7 +4,7 @@
    flat ISTF nodes */
 
 type literal =
-  | Literal(string)
+  | Word(string)
   | Ref(Token.interpolation);
 
 type case =
@@ -22,6 +22,7 @@ type selector =
   | Literal(literal)
   | Attribute(attribute)
   | Compound(list(selector))
+  | Function(string, list(selector))
   | ParentSelector
   | UniversalSelector
   | SpaceCombinator
