@@ -28,3 +28,4 @@ dist/
 node_modules/
 lib/
 coverage/
+old_src/

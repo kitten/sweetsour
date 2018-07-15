@@ -42,7 +42,8 @@
     "lint-staged": "^6.0.0",
     "npm-run-all": "^4.1.2",
     "refmt": "^1.13.7-1",
-    "rollup": "^0.50.0"
+    "rollup": "^0.50.0",
+    "rollup-plugin-babel": "^3.0.7"
   },
   "jest": {
     "moduleFileExtensions": [

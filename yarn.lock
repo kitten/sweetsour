@@ -7152,6 +7152,12 @@ rollup-plugin-babel@^3.0.2:
   dependencies:
     rollup-pluginutils "^1.5.0"
 
+rollup-plugin-babel@^3.0.7:
+  version "3.0.7"
+  resolved "https://registry.yarnpkg.com/rollup-plugin-babel/-/rollup-plugin-babel-3.0.7.tgz#5b13611f1ab8922497e9d15197ae5d8a23fe3b1e"
+  dependencies:
+    rollup-pluginutils "^1.5.0"
+
 rollup-plugin-commonjs@^8.2.1:
   version "8.4.1"
   resolved "https://registry.yarnpkg.com/rollup-plugin-commonjs/-/rollup-plugin-commonjs-8.4.1.tgz#5c9cea2b2c3de322f5fbccd147e07ed5e502d7a0"
@@ -8412,10 +8418,6 @@ widest-line@^2.0.0:
 window-size@0.1.0:
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/window-size/-/window-size-0.1.0.tgz#5438cd2ea93b202efa3a19fe8887aee7c94f9c9d"
-
-wonka@^0.1.0-2:
-  version "0.1.0-2"
-  resolved "https://registry.yarnpkg.com/wonka/-/wonka-0.1.0-2.tgz#a92d003302075fcb66ae78f85241e4f5433e7528"
 
 wordwrap@0.0.2:
   version "0.0.2"
