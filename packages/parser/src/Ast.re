@@ -3,46 +3,7 @@
    when parsing recursively, while the structure itself is easily converted to
    flat ISTF nodes */
 
-type literal =
-  | Word(string)
-  | Ref(Token.interpolation);
-
-type case =
-  | CaseSensitive
-  | CaseInsensitive;
-
-type attribute = {
-  name: literal,
-  operator: string,
-  value: literal,
-  case: case
-};
-
-type selector =
-  | Literal(literal)
-  | Attribute(attribute)
-  | Compound(list(selector))
-  | Function(string, list(selector))
-  | ParentSelector
-  | UniversalSelector
-  | SpaceCombinator
-  | ChildCombinator
-  | DoubledChildCombinator
-  | NextSiblingCombinator
-  | SubsequentSiblingCombinator;
-
-type value =
-  | Literal(literal)
-  | Compound(list(value))
-  | Function(string, list(value))
-  | StringLiteral(list(literal));
-
-type declaration = {
-  property: literal,
-  value: value
-};
-
-type rule =
+type ruleKind =
   | StyleRule /* CSSOM */
   | CharsetRule /* CSSOM */
   | ImportRule /* CSSOM */
@@ -60,8 +21,46 @@ type rule =
   | ViewportRule /* CSS Device Adapt */
   | RegionStyleRule; /* Proposed for CSS 3 Regions */
 
-type ruleSet = {
-  kind: rule,
+type literal =
+  | Word(string)
+  | Ref(Token.interpolation);
+
+type case =
+  | CaseSensitive
+  | CaseInsensitive;
+
+type attributeT = {
+  name: literal,
+  operator: string,
+  value: literal,
+  case: case
+};
+
+type selector =
+  | Selector(literal)
+  | SelectorFn(string, list(selector))
+  | Compound(list(selector))
+  | Attribute(attributeT)
+  | ParentSelector
+  | UniversalSelector
+  | SpaceCombinator
+  | ChildCombinator
+  | DoubledChildCombinator
+  | NextSiblingCombinator
+  | SubsequentSiblingCombinator;
+
+type value =
+  | Value(literal)
+  | ValueFn(string, list(value))
+  | Compound(list(value))
+  | StringLiteral(list(literal));
+
+type body =
+  | Declaration(literal, value)
+  | Rule(ruleSet)
+  | Ref(Token.interpolation)
+and ruleSet = {
+  kind: ruleKind,
   selectors: list(selector),
-  declarations: list(declaration)
+  rules: list(body)
 };
