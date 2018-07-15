@@ -33,7 +33,7 @@ type selector =
 type value =
   | Literal(literal)
   | Compound(list(value))
-  | Function(list(value))
+  | Function(string, list(value))
   | StringLiteral(list(literal));
 
 type declaration = {
