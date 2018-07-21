@@ -68,7 +68,9 @@ let rec lexWord = (
     lexWord(LexEnv.source(env), str ++ "\\" ++ escaped)
   }
 
-  | S_CHAR(('%' | '-' | '_') as c)
+  | S_CHAR(('%' | '-' | '_') as c) =>
+    lexWord(LexEnv.source(env), str ++ charToStr(c))
+
   | S_CHAR(c) when LexUtils.isWordStart(c) =>
     lexWord(LexEnv.source(env), str ++ charToStr(c))
 
