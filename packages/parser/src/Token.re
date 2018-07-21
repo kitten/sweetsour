@@ -8,7 +8,7 @@ type quote =
   | T_QUOTE_DOUBLE
   | T_QUOTE_SINGLE;
 
-type t =
+type value =
   | T_REF(interpolation)
   | T_BRACKET_ROUND(pair) /* `(` & `)`, aka parentheses */
   | T_BRACKET_SQUARE(pair) /* `[` & `]`, aka brackets */
@@ -31,3 +31,5 @@ type t =
   | T_SYMBOL_DOLLAR /* `$` */
   | T_SYMBOL_CARET /* `^` */
   | T_EOF; /* end of tokens/file */
+
+type t = Token(value, Loc.t);

@@ -8,20 +8,28 @@ type mode =
   | StrEnd(Token.quote);
 
 type t = {
-  source: unit => Source.input,
   buffer: option(Source.input),
-  prev: Token.t,
   mode: mode,
-  pos: Loc.position
+  prev: Token.value,
+  prevPos: Loc.position,
+  pos: Loc.position,
+  source: unit => Source.input
 };
 
 let prev = (env: t) => env.prev;
 let mode = (env: t) => env.mode;
 
+let pos = (env: t) =>
+  switch(env.buffer) {
+  | None => env.pos
+  | Some(_) => env.prevPos
+  };
+
 let make = (source: unit => Source.input) => {
   buffer: None,
   mode: Main,
   prev: T_EOF,
+  prevPos: Loc.makePos(),
   pos: Loc.makePos(),
   source
 };
@@ -33,11 +41,13 @@ let buffer = (x: Source.input, env: t) => {
 
 let newline = (env: t): t => {
   ...env,
+  prevPos: env.pos,
   pos: Loc.advanceRow(env.pos)
 };
 
 let newchar = (env: t): t => {
   ...env,
+  prevPos: env.pos,
   pos: Loc.advanceOffset(env.pos)
 };
 
@@ -62,7 +72,12 @@ let switchMode = (mode: mode, env: t): t => {
   mode
 };
 
-let emitToken = (env: t, token: Token.t): (t, Token.t) => {
+let emitToken = (
+  env: t,
+  start: Loc.position,
+  token: Token.value
+): (t, Token.t) => {
+  let loc = Loc.make(start, pos(env));
   let env = { ...env, prev: token };
-  (env, token)
+  (env, Token(token, loc))
 };

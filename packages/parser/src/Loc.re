@@ -9,7 +9,7 @@ type t = {
 };
 
 let makePos = (): position => {
-  row: 0,
+  row: 1,
   offset: 0
 };
 
@@ -21,4 +21,9 @@ let advanceRow = (p: position): position => {
 let advanceOffset = (p: position): position => {
   row: p.row,
   offset: p.offset + 1
+};
+
+let make = (start: position, _end: position) => {
+  start,
+  _end
 };

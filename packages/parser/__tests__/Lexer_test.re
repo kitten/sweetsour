@@ -1,4 +1,5 @@
 open Jest;
+open Token;
 open Lexer;
 
 let it = test;
@@ -6,16 +7,37 @@ let it = test;
 let test_lex = (str: string) => {
   let source = Source.make([| str |], [||]);
   let env = LexEnv.make(source);
+  let rec explode = (env: LexEnv.t, ls: list(Token.value)) => {
+    let (env, token) = lex(env);
+    let Token(value, _) = token;
+
+    switch (value) {
+    | T_EOF => List.rev(ls)
+    | _ => explode(env, [value, ...ls])
+    }
+  };
+
+  explode(env, [])
+};
+
+let test_lex_pos = (str: string) => {
+  let source = Source.make([| str |], [||]);
+  let env = LexEnv.make(source);
   let rec explode = (env: LexEnv.t, ls: list(Token.t)) => {
     let (env, token) = lex(env);
 
     switch (token) {
-    | T_EOF => List.rev(ls)
+    | Token(T_EOF, _) => List.rev(ls)
     | _ => explode(env, [token, ...ls])
     }
   };
 
   explode(env, [])
+};
+
+let quickLoc = ((ya, xa): (int, int), (yb, xb): (int, int)): Loc.t => {
+  start: { row: ya, offset: xa },
+  _end: { row: yb, offset: xb }
 };
 
 describe("Lexer", () => {
@@ -135,6 +157,21 @@ describe("Lexer", () => {
 
     it("throws when strings are not closed", () => {
       expect(() => test_lex("'test")) |> toThrow;
+    });
+  });
+
+  describe("lex with correct Loc info", () => {
+    open Expect;
+    open! Expect.Operators;
+
+    it("tokenises words and their positions", () => {
+      let str = "\n color :\n    blue;";
+      expect(test_lex_pos(str)) == [
+        Token(T_LITERAL_WORD("color"), quickLoc((2, 2), (2, 6))),
+        Token(T_SYMBOL_COLON, quickLoc((2, 8), (2, 8))),
+        Token(T_LITERAL_WORD("blue"), quickLoc((3, 5), (3, 8))),
+        Token(T_SYMBOL_SEMI, quickLoc((3, 9), (3, 9)))
+      ]
     });
   });
 });

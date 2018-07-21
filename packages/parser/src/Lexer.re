@@ -2,7 +2,7 @@ open Common;
 open Token;
 
 type result =
-  | Token(LexEnv.t, Token.t)
+  | Emit(LexEnv.t, Token.value)
   | Continue(LexEnv.t);
 
 exception TODO;
@@ -98,10 +98,10 @@ let rec lexString = (
     };
 
     if (str === "") {
-      Token(LexEnv.switchMode(Main, env), T_SYMBOL_QUOTE(quote))
+      Emit(LexEnv.switchMode(Main, env), T_SYMBOL_QUOTE(quote))
     } else {
       let env = LexEnv.switchMode(StrEnd(quote), env);
-      Token(env, T_LITERAL_STRING(str))
+      Emit(env, T_LITERAL_STRING(str))
     }
   }
 
@@ -109,33 +109,33 @@ let rec lexString = (
     let str = str ++ charToStr(c);
     lexString(LexEnv.source(env), quote, str)
   | S_REF(r) when str === "" =>
-    Token(env, T_REF(r))
+    Emit(env, T_REF(r))
   | S_REF(_) =>
-    Token(LexEnv.buffer(input, env), T_LITERAL_STRING(str))
+    Emit(LexEnv.buffer(input, env), T_LITERAL_STRING(str))
   | S_EOF => raise(UnexpectedEof(env))
   };
 };
 
 let lexMainChar = (env: LexEnv.t, x: char): result => {
   switch (x) {
-  | '{' => Token(env, T_BRACKET_CURLY(T_PAIR_OPENING))
-  | '}' => Token(env, T_BRACKET_CURLY(T_PAIR_CLOSING))
-  | '[' => Token(env, T_BRACKET_SQUARE(T_PAIR_OPENING))
-  | ']' => Token(env, T_BRACKET_SQUARE(T_PAIR_CLOSING))
-  | ')' => Token(env, T_BRACKET_ROUND(T_PAIR_CLOSING))
-  | '!' => Token(env, T_SYMBOL_EXCLAMATION)
-  | '=' => Token(env, T_SYMBOL_EQUAL)
-  | ':' => Token(env, T_SYMBOL_COLON)
-  | ';' => Token(env, T_SYMBOL_SEMI)
-  | '+' => Token(env, T_SYMBOL_PLUS)
-  | '>' => Token(env, T_SYMBOL_GREATER)
-  | '~' => Token(env, T_SYMBOL_TILDE)
-  | ',' => Token(env, T_SYMBOL_COMMA)
-  | '|' => Token(env, T_SYMBOL_PIPE)
-  | '$' => Token(env, T_SYMBOL_DOLLAR)
-  | '*' => Token(env, T_SYMBOL_ASTERISK)
-  | '&' => Token(env, T_SYMBOL_AMPERSAND)
-  | '^' => Token(env, T_SYMBOL_CARET)
+  | '{' => Emit(env, T_BRACKET_CURLY(T_PAIR_OPENING))
+  | '}' => Emit(env, T_BRACKET_CURLY(T_PAIR_CLOSING))
+  | '[' => Emit(env, T_BRACKET_SQUARE(T_PAIR_OPENING))
+  | ']' => Emit(env, T_BRACKET_SQUARE(T_PAIR_CLOSING))
+  | ')' => Emit(env, T_BRACKET_ROUND(T_PAIR_CLOSING))
+  | '!' => Emit(env, T_SYMBOL_EXCLAMATION)
+  | '=' => Emit(env, T_SYMBOL_EQUAL)
+  | ':' => Emit(env, T_SYMBOL_COLON)
+  | ';' => Emit(env, T_SYMBOL_SEMI)
+  | '+' => Emit(env, T_SYMBOL_PLUS)
+  | '>' => Emit(env, T_SYMBOL_GREATER)
+  | '~' => Emit(env, T_SYMBOL_TILDE)
+  | ',' => Emit(env, T_SYMBOL_COMMA)
+  | '|' => Emit(env, T_SYMBOL_PIPE)
+  | '$' => Emit(env, T_SYMBOL_DOLLAR)
+  | '*' => Emit(env, T_SYMBOL_ASTERISK)
+  | '&' => Emit(env, T_SYMBOL_AMPERSAND)
+  | '^' => Emit(env, T_SYMBOL_CARET)
 
   | '(' => {
     /*
@@ -145,7 +145,7 @@ let lexMainChar = (env: LexEnv.t, x: char): result => {
     };
     */
 
-    Token(env, T_BRACKET_ROUND(T_PAIR_OPENING))
+    Emit(env, T_BRACKET_ROUND(T_PAIR_OPENING))
   }
 
   | '/' => {
@@ -158,12 +158,12 @@ let lexMainChar = (env: LexEnv.t, x: char): result => {
 
   | '"' => {
     let env = LexEnv.switchMode(Str('"'), env);
-    Token(env, T_SYMBOL_QUOTE(T_QUOTE_DOUBLE))
+    Emit(env, T_SYMBOL_QUOTE(T_QUOTE_DOUBLE))
   }
 
   | '\'' => {
     let env = LexEnv.switchMode(Str('\''), env);
-    Token(env, T_SYMBOL_QUOTE(T_QUOTE_SINGLE))
+    Emit(env, T_SYMBOL_QUOTE(T_QUOTE_SINGLE))
   }
 
   | '\n'
@@ -173,18 +173,18 @@ let lexMainChar = (env: LexEnv.t, x: char): result => {
 
   | '@' => {
     let (env, res) = lexWord(LexEnv.source(env), "");
-    Token(env, T_LITERAL_ATWORD(res))
+    Emit(env, T_LITERAL_ATWORD(res))
   }
 
   | '\\' => {
     let (env, escaped) = lexEscaped(LexEnv.source(env));
     let (env, res) = lexWord(LexEnv.source(env), "\\" ++ escaped);
-    Token(env, T_LITERAL_WORD(res))
+    Emit(env, T_LITERAL_WORD(res))
   }
 
   | c when LexUtils.isWordStart(c) => {
     let (env, res) = lexWord(LexEnv.source(env), charToStr(c));
-    Token(env, T_LITERAL_WORD(res))
+    Emit(env, T_LITERAL_WORD(res))
   }
 
   | _ => raise(UnknownChar(env, x))
@@ -194,20 +194,21 @@ let lexMainChar = (env: LexEnv.t, x: char): result => {
 let lexMain = (env: LexEnv.t, x: Source.input) => {
   switch (x) {
   | S_CHAR(c) => lexMainChar(env, c)
-  | S_REF(r) => Token(env, T_REF(r))
-  | S_EOF => Token(env, T_EOF)
+  | S_REF(r) => Emit(env, T_REF(r))
+  | S_EOF => Emit(env, T_EOF)
   }
 };
 
 let lexStringEnd = (env: LexEnv.t, input: Source.input, quote: Token.quote) => {
   let env = LexEnv.buffer(input, env);
-  Token(LexEnv.switchMode(Main, env), T_SYMBOL_QUOTE(quote));
+  Emit(LexEnv.switchMode(Main, env), T_SYMBOL_QUOTE(quote));
 };
 
 let lex = (env: LexEnv.t): (LexEnv.t, Token.t) => {
   let rec explode = (env) => {
     let mode = LexEnv.mode(env);
     let (env, input) = LexEnv.source(env);
+    let start = LexEnv.pos(env);
 
     let output = switch (mode) {
     | Main => lexMain(env, input)
@@ -216,8 +217,8 @@ let lex = (env: LexEnv.t): (LexEnv.t, Token.t) => {
     };
 
     switch (output) {
+    | Emit(env, token) => LexEnv.emitToken(env, start, token)
     | Continue(env) => explode(env)
-    | Token(env, token) => LexEnv.emitToken(env, token)
     }
   };
 
