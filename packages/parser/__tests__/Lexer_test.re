@@ -117,6 +117,17 @@ describe("Lexer", () => {
       ]
     });
 
+    it("tokenises calc() arguments", () => {
+      let str = "calc(\n(100% - 40px)\n\t* 0.5\r  )";
+
+      expect(test_lex(str)) == [
+        T_LITERAL_WORD("calc"),
+        T_BRACKET_ROUND(T_PAIR_OPENING),
+        T_LITERAL_STRING("\n(100% - 40px)\n\t* 0.5\r  "),
+        T_BRACKET_ROUND(T_PAIR_CLOSING)
+      ]
+    });
+
     it("skips over all whitespaces", () => {
       let str = " \n\r\t";
       expect(test_lex(str)) == []

@@ -142,6 +142,7 @@ let lexMainChar = (env: LexEnv.t, x: char): result => {
     let (env, input) = LexEnv.peek(env);
 
     let env = switch (LexEnv.prev(env), input) {
+    | (T_LITERAL_WORD("calc"), _) => LexEnv.switchMode(CalcFn(0), env)
     | (T_LITERAL_WORD("url"), S_CHAR('"' | '\'')) => env
     | (T_LITERAL_WORD("url"), S_CHAR('\n' | '\t' | '\r' | ' ')) =>
       LexEnv.switchMode(UrlFn, lexWhitespaces((env, input)))
@@ -248,6 +249,50 @@ let rec lexUrl = (
   }
 };
 
+let rec lexCalc = (
+  (env, input): (LexEnv.t, Source.input),
+  depth: int,
+  str: string
+): result => {
+  switch (input) {
+  | S_CHAR('\\') => {
+    let (env, escaped) = lexEscaped(LexEnv.source(env));
+    let str = str ++ "\\" ++ escaped;
+    lexCalc(LexEnv.source(env), depth, str)
+  }
+
+  | S_CHAR('(') => {
+    let depth = depth + 1;
+    let env = LexEnv.switchMode(CalcFn(depth), env);
+    lexCalc(LexEnv.source(env), depth, str ++ "(")
+  }
+  | S_CHAR(')') when depth > 0 => {
+    let depth = depth - 1;
+    let env = LexEnv.switchMode(CalcFn(depth), env);
+    lexCalc(LexEnv.source(env), depth, str ++ ")")
+  }
+  | S_CHAR(')') when str === "" => {
+    let env = LexEnv.switchMode(Main, env);
+    Emit(env, T_BRACKET_ROUND(T_PAIR_CLOSING))
+  }
+  | S_CHAR(')') => {
+    let env = LexEnv.buffer(input, LexEnv.switchMode(Main, env));
+    Emit(env, T_LITERAL_STRING(str))
+  }
+
+  | S_CHAR(('"' | '\'') as c) =>
+    raise(UnexpectedChar(env, c))
+
+  | S_CHAR(c) =>
+    lexCalc(LexEnv.source(env), depth, str ++ charToStr(c))
+  | S_REF(r) when str === "" =>
+    Emit(env, T_REF(r))
+  | S_REF(_) =>
+    Emit(LexEnv.buffer(input, env), T_LITERAL_STRING(str))
+  | S_EOF => raise(UnexpectedEof(env))
+  }
+};
+
 let lexStringEnd = (env: LexEnv.t, input: Source.input, quote: Token.quote) => {
   let env = LexEnv.buffer(input, env);
   Emit(LexEnv.switchMode(Main, env), T_SYMBOL_QUOTE(quote));
@@ -262,6 +307,7 @@ let lex = (env: LexEnv.t): (LexEnv.t, Token.t) => {
     let output = switch (mode) {
     | Main => lexMain(env, input)
     | UrlFn => lexUrl((env, input), "")
+    | CalcFn(depth) => lexCalc((env, input), depth, "")
     | Str(quote) => lexString((env, input), quote, "")
     | StrEnd(quote) => lexStringEnd(env, input, quote)
     };

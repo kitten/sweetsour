@@ -1,10 +1,7 @@
-type argMode =
-  | StringArg
-  | ContentArg;
-
 type mode =
   | Main
   | UrlFn
+  | CalcFn(int)
   | Str(char)
   | StrEnd(Token.quote);
 
