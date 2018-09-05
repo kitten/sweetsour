@@ -9,6 +9,7 @@ exception TODO;
 exception UnknownChar(LexEnv.t, char);
 exception UnexpectedChar(LexEnv.t, char);
 exception UnexpectedInput(LexEnv.t, Source.input);
+exception UnexpectedWhitespace(LexEnv.t);
 exception UnexpectedEof(LexEnv.t);
 
 let rec lexWhitespaces = ((env, input): (LexEnv.t, Source.input)): LexEnv.t => {
@@ -85,7 +86,7 @@ let rec lexString = (
   str: string
 ): result => {
   switch (input) {
-  | S_CHAR('\n') => raise(UnexpectedChar(env, '\n'))
+  | S_CHAR('\n') => raise(UnexpectedWhitespace(env))
   | S_CHAR('\\') => {
     let (env, escaped) = lexEscaped(LexEnv.source(env));
     let str = str ++ "\\" ++ escaped;
@@ -108,8 +109,7 @@ let rec lexString = (
   }
 
   | S_CHAR(c) =>
-    let str = str ++ charToStr(c);
-    lexString(LexEnv.source(env), quote, str)
+    lexString(LexEnv.source(env), quote, str ++ charToStr(c))
   | S_REF(r) when str === "" =>
     Emit(env, T_REF(r))
   | S_REF(_) =>
@@ -124,7 +124,6 @@ let lexMainChar = (env: LexEnv.t, x: char): result => {
   | '}' => Emit(env, T_BRACKET_CURLY(T_PAIR_CLOSING))
   | '[' => Emit(env, T_BRACKET_SQUARE(T_PAIR_OPENING))
   | ']' => Emit(env, T_BRACKET_SQUARE(T_PAIR_CLOSING))
-  | ')' => Emit(env, T_BRACKET_ROUND(T_PAIR_CLOSING))
   | '!' => Emit(env, T_SYMBOL_EXCLAMATION)
   | '=' => Emit(env, T_SYMBOL_EQUAL)
   | ':' => Emit(env, T_SYMBOL_COLON)
@@ -140,15 +139,20 @@ let lexMainChar = (env: LexEnv.t, x: char): result => {
   | '^' => Emit(env, T_SYMBOL_CARET)
 
   | '(' => {
-    /*
-    let env = switch (LexEnv.prev(env)) {
-    | T_LITERAL_WORD("calc") => LexEnv.switchMode(Str(')'), env)
+    let (env, input) = LexEnv.peek(env);
+
+    let env = switch (LexEnv.prev(env), input) {
+    | (T_LITERAL_WORD("url"), S_CHAR('"' | '\'')) => env
+    | (T_LITERAL_WORD("url"), S_CHAR('\n' | '\t' | '\r' | ' ')) =>
+      LexEnv.switchMode(UrlFn, lexWhitespaces((env, input)))
+    | (T_LITERAL_WORD("url"), _) => LexEnv.switchMode(UrlFn, env)
     | _ => env
     };
-    */
 
     Emit(env, T_BRACKET_ROUND(T_PAIR_OPENING))
   }
+
+  | ')' => Emit(env, T_BRACKET_ROUND(T_PAIR_CLOSING))
 
   | '/' => {
     let (env, input) = LexEnv.source(env);
@@ -201,6 +205,49 @@ let lexMain = (env: LexEnv.t, x: Source.input) => {
   }
 };
 
+let rec lexUrl = (
+  (env, input): (LexEnv.t, Source.input),
+  str: string
+): result => {
+  switch (input) {
+  | S_CHAR('\\') => {
+    let (env, escaped) = lexEscaped(LexEnv.source(env));
+    let str = str ++ "\\" ++ escaped;
+    lexUrl(LexEnv.source(env), str)
+  }
+
+  | S_CHAR(' ' | '\t' | '\r' | '\n') => {
+    let env = lexWhitespaces(LexEnv.source(env));
+    let (env, input) = LexEnv.source(env);
+
+    switch (input) {
+    | S_CHAR(')') => lexUrl((env, input), str)
+    | _ => raise(UnexpectedWhitespace(env))
+    }
+  }
+
+  | S_CHAR(')') when str === "" => {
+    let env = LexEnv.switchMode(Main, env);
+    Emit(env, T_BRACKET_ROUND(T_PAIR_CLOSING))
+  }
+  | S_CHAR(')') => {
+    let env = LexEnv.buffer(input, LexEnv.switchMode(Main, env));
+    Emit(env, T_LITERAL_STRING(str))
+  }
+
+  | S_CHAR(('"' | '\'') as c) =>
+    raise(UnexpectedChar(env, c))
+
+  | S_CHAR(c) =>
+    lexUrl(LexEnv.source(env), str ++ charToStr(c))
+  | S_REF(r) when str === "" =>
+    Emit(env, T_REF(r))
+  | S_REF(_) =>
+    Emit(LexEnv.buffer(input, env), T_LITERAL_STRING(str))
+  | S_EOF => raise(UnexpectedEof(env))
+  }
+};
+
 let lexStringEnd = (env: LexEnv.t, input: Source.input, quote: Token.quote) => {
   let env = LexEnv.buffer(input, env);
   Emit(LexEnv.switchMode(Main, env), T_SYMBOL_QUOTE(quote));
@@ -214,8 +261,9 @@ let lex = (env: LexEnv.t): (LexEnv.t, Token.t) => {
 
     let output = switch (mode) {
     | Main => lexMain(env, input)
-    | Str(c) => lexString((env, input), c, "")
-    | StrEnd(q) => lexStringEnd(env, input, q)
+    | UrlFn => lexUrl((env, input), "")
+    | Str(quote) => lexString((env, input), quote, "")
+    | StrEnd(quote) => lexStringEnd(env, input, quote)
     };
 
     switch (output) {

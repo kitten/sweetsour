@@ -95,6 +95,28 @@ describe("Lexer", () => {
       ]
     });
 
+    it("tokenises unquoted url() arguments", () => {
+      let str = "url(http://example.com)";
+
+      expect(test_lex(str)) == [
+        T_LITERAL_WORD("url"),
+        T_BRACKET_ROUND(T_PAIR_OPENING),
+        T_LITERAL_STRING("http://example.com"),
+        T_BRACKET_ROUND(T_PAIR_CLOSING)
+      ]
+    });
+
+    it("tokenises unquoted url() arguments skipping whitespaces", () => {
+      let str = "url(\r\n\t  http://example.com\r\n\t  )";
+
+      expect(test_lex(str)) == [
+        T_LITERAL_WORD("url"),
+        T_BRACKET_ROUND(T_PAIR_OPENING),
+        T_LITERAL_STRING("http://example.com"),
+        T_BRACKET_ROUND(T_PAIR_CLOSING)
+      ]
+    });
+
     it("skips over all whitespaces", () => {
       let str = " \n\r\t";
       expect(test_lex(str)) == []
@@ -157,6 +179,10 @@ describe("Lexer", () => {
 
     it("throws when strings are not closed", () => {
       expect(() => test_lex("'test")) |> toThrow;
+    });
+
+    it("throws when whitespaces in unquoted url() are found", () => {
+      expect(() => test_lex("url(x x)")) |> toThrow;
     });
   });
 

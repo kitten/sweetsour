@@ -4,6 +4,7 @@ type argMode =
 
 type mode =
   | Main
+  | UrlFn
   | Str(char)
   | StrEnd(Token.quote);
 
@@ -65,6 +66,11 @@ let source = (env: t) => {
   }
   | Some(x) => ({ ...env, buffer: None }, x)
   }
+};
+
+let peek = (env: t) => {
+  let (env, input) = source(env);
+  (buffer(input, env), input)
 };
 
 let switchMode = (mode: mode, env: t): t => {
