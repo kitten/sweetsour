@@ -6,12 +6,14 @@ type mode =
   | StrEnd(Token.quote);
 
 type t = {
-  buffer: option(Source.input),
+  mutable cursor: int,
+  sourceSize: int,
+  source: array(Source.input),
+  buffer: Source.input,
   mode: mode,
   prev: Token.value,
   prevPos: Loc.position,
-  pos: Loc.position,
-  source: unit => Source.input
+  pos: Loc.position
 };
 
 let prev = (env: t) => env.prev;
@@ -19,22 +21,24 @@ let mode = (env: t) => env.mode;
 
 let pos = (env: t) =>
   switch(env.buffer) {
-  | None => env.pos
-  | Some(_) => env.prevPos
+  | S_EOF => env.pos
+  | _ => env.prevPos
   };
 
-let make = (source: unit => Source.input) => {
-  buffer: None,
+let make = (source: array(Source.input)) => {
+  cursor: 0,
+  sourceSize: Array.length(source),
+  source,
+  buffer: S_EOF,
   mode: Main,
   prev: T_EOF,
   prevPos: Loc.makePos(),
-  pos: Loc.makePos(),
-  source
+  pos: Loc.makePos()
 };
 
 let buffer = (x: Source.input, env: t) => {
   ...env,
-  buffer: Some(x)
+  buffer: x
 };
 
 let newline = (env: t): t => {
@@ -51,17 +55,19 @@ let newchar = (env: t): t => {
 
 let source = (env: t) => {
   switch (env.buffer) {
-  | None => {
-    let x = env.source();
-    let env = switch (x) {
-    | S_CHAR('\n') => newline(env)
-    | S_CHAR(_) => newchar(env)
-    | _ => env
-    };
+  | S_EOF when (env.cursor >= env.sourceSize) =>
+    (env, Source.S_EOF)
+  | S_EOF => {
+    let x = Array.unsafe_get(env.source, env.cursor);
+    env.cursor = env.cursor + 1;
 
-    (env, x)
+    switch (x) {
+    | S_CHAR('\n') => (newline(env), x)
+    | S_CHAR(_) => (newchar(env), x)
+    | _ => (env, x)
+    }
   }
-  | Some(x) => ({ ...env, buffer: None }, x)
+  | x => ({ ...env, buffer: S_EOF }, x)
   }
 };
 

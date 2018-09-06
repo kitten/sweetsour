@@ -5,7 +5,6 @@ type result =
   | Emit(LexEnv.t, Token.value)
   | Continue(LexEnv.t);
 
-exception TODO;
 exception UnknownChar(LexEnv.t, char);
 exception UnexpectedChar(LexEnv.t, char);
 exception UnexpectedInput(LexEnv.t, Source.input);
