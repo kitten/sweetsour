@@ -31,11 +31,10 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@glennsl/bs-jest": "^0.4.3",
     "babel-core": "^6.26.0",
     "babel-jest": "^21.2.0",
     "babel-preset-env": "^1.6.1",
-    "bs-jest": "^0.3.2",
-    "bs-loader": "^2.0.1",
     "bs-platform": "^3.1.4",
     "husky": "^0.14.3",
     "jest": "^21.2.1",
@@ -47,17 +46,15 @@
   },
   "jest": {
     "moduleFileExtensions": [
-      "re",
-      "js",
-      "ml"
+      "js"
     ],
     "testMatch": [
-      "**/__tests__/*_test.re",
-      "**/__tests__/suite/*_test.re"
+      "**/__tests__/*_test.js",
+      "**/__tests__/suite/*_test.js"
     ],
-    "transform": {
-      ".(re|ml)": "bs-loader"
-    }
+    "modulePathIgnorePatterns": [
+      "/es6/"
+    ]
   },
   "babel": {
     "presets": [

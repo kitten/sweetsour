@@ -4,7 +4,16 @@
   "version": "0.1.0",
   "bsc-flags": ["-bs-super-errors", "-bs-no-version-header"],
   "refmt": 3,
-  "package-specs" : ["es6", "commonjs"],
+  "package-specs": [
+    {
+      "module": "commonjs",
+      "in-source": false
+    },
+    {
+      "module": "es6",
+      "in-source": false
+    }
+  ],
   "sources": [
     "src",
     {
@@ -14,5 +23,5 @@
     }
   ],
   "bs-dependencies": [],
-  "bs-dev-dependencies": ["bs-jest"]
+  "bs-dev-dependencies": ["@glennsl/bs-jest"]
 }
