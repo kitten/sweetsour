@@ -1,0 +1,12 @@
+open Jest;
+open Token;
+open Lexer;
+
+let it = test;
+
+describe("Parser", () => {
+  describe("parse with string source", () => {
+    open Expect;
+    open! Expect.Operators;
+  });
+});

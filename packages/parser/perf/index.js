@@ -1,33 +1,15 @@
 const { readFileSync } = require('fs');
 const { join } = require('path');
 const Benchmark = require('benchmark');
+const { padl, padr } = require('./utils');
 
-const padl = (n, s) => {
-  let res = s;
-  while(res.length < n) {
-    res += ' ';
-  }
-
-  return res;
-};
-
-const padr = (n, s) => {
-  let res = s;
-  while (res.length < n) {
-    res = ' ' + res;
-  }
-
-  return res;
-};
-
-const sweetsourParser = require('..');
+const Sweetsour = require('..');
 const Stylis = require('stylis');
-const makeInsertRulePlugin = require('stylis-rule-sheet');
 
-const normalizeRaw = readFileSync(join(__dirname, '../__tests__/suite/normalize.css')).toString('utf8');
+const testCss = readFileSync(join(__dirname, './test.css')).toString('utf8');
 const suite = Benchmark.Suite('css parser');
 
-const stylisSplitter = new Stylis({
+const stylis = new Stylis({
   global: false,
   cascade: false,
   keyframe: false,
@@ -36,33 +18,19 @@ const stylisSplitter = new Stylis({
   semicolon: true,
 });
 
-let parsingRules = [];
-const returnRulesPlugin = context => {
-  if (context === -2) {
-    const parsedRules = parsingRules;
-    parsingRules = [];
-    return parsedRules;
+const options = {
+  onError: e => {
+    console.error(e.message);
+    e.currentTarget.failure = e.error;
   }
 };
 
-const parseRulesPlugin = makeInsertRulePlugin(rule => {
-  parsingRules.push(rule);
-});
-
-stylisSplitter.use([parseRulesPlugin, returnRulesPlugin]);
-
-const options = {
-  onError: e => { e.currentTarget.failure = e.error; }
-};
-
 suite
-  .add('sweetsour normalize.css', () => {
-    sweetsourParser.nodeStreamToOutput(
-      sweetsourParser.parseTemplate([normalizeRaw], [])
-    );
+  .add('stylis transform', () => {
+    stylis('', testCss);
   }, options)
-  .add('stylis normalize.css', () => {
-    stylisSplitter('', normalizeRaw);
+  .add('sweetsour lexer', () => {
+    Sweetsour.lex([testCss], []);
   }, options)
 
 function logStart () {

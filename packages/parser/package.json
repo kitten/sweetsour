@@ -35,7 +35,7 @@
     "babel-core": "^6.26.0",
     "babel-jest": "^21.2.0",
     "babel-preset-env": "^1.6.1",
-    "bs-platform": "^3.1.4",
+    "bs-platform": "^4.0.5",
     "husky": "^0.14.3",
     "jest": "^21.2.1",
     "lint-staged": "^6.0.0",
